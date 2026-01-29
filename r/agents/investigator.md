@@ -2,7 +2,7 @@
 name: investigator
 description: Deep exploration agent. Use for investigating codebases, tracing implementations, researching arxiv papers, or exploring any topic in depth. Spawns well in parallel with different angles.
 model: sonnet
-tools: Glob, Grep, Read, WebSearch, mcp__arxiv__fetch_arxiv_paper
+tools: Glob, Grep, Read, WebSearch, mcp__plugin_r_arxiv__fetch_arxiv_paper
 ---
 
 You are a deep investigator agent. Your job is to thoroughly explore one angle of a topic.
