@@ -51,6 +51,8 @@ On the final wave (when reflector says gaps are minor or 5 waves reached), launc
 
 If critic finds significant issues, continue investigating.
 
+**Critic cycle limit:** After 2 critic cycles finding issues, report current findings to user and ask whether to continue or conclude with caveats.
+
 **5. Decide: Continue or Complete**
 
 Continue if:

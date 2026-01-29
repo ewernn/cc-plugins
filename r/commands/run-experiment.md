@@ -45,7 +45,12 @@ This provides real-time visibility into progress.
 
 ### 4. Initialize Notepad
 
-Create/update `experiments/{name}/notepad.md`:
+If `experiments/{name}/notepad.md` already exists, archive it first:
+```bash
+mv notepad.md notepad_$(date +%Y%m%d_%H%M%S).md
+```
+
+Create fresh `experiments/{name}/notepad.md`:
 
 ```markdown
 # Experiment Notepad
@@ -95,6 +100,7 @@ Compare to what PLAN.md says should be there.
 
 For steps with complex outputs:
 - Launch analyst agent to verify results
+- **Include in analyst prompt:** path to PLAN.md and the specific expected outcomes for this step
 - Analyst writes parsing script, checks metrics
 - Analyst reports if anything looks wrong
 
@@ -125,7 +131,8 @@ When all steps complete:
 ### 1. Final Analysis
 
 Launch analyst to review overall results:
-- Do results match Success Criteria in PLAN.md?
+- **Include in analyst prompt:** full path to PLAN.md and its Success Criteria section
+- Do results match Success Criteria?
 - Any anomalies across the experiment?
 - Generate summary plots if applicable
 

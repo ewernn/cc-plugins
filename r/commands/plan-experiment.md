@@ -67,6 +67,8 @@ DO NOT proceed to Phase 6 until critical issues are addressed.
 
 If critic identifies gaps in understanding, GO BACK to Phase 2 and spawn more investigators. Phases are not strictly linear.
 
+**Loop limit:** If you've done 3 Phase 2→5 cycles without resolution, STOP and use AskUserQuestion to get user guidance on how to proceed.
+
 ### Phase 6: Detail the Steps
 
 For each step in the plan:

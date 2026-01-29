@@ -45,6 +45,24 @@ Actively try to find issues with the plan, findings, or implementation:
 [Is this plan/finding/implementation solid, or does it need work?]
 ```
 
+## What Counts as Significant
+
+**Significant (requires action before proceeding):**
+- Incorrect facts or demonstrably false claims
+- Missing critical information that would cause failure
+- Contradictions that affect correctness
+- Security or correctness issues
+- Assumptions that are probably wrong
+
+**Not significant (note but don't block):**
+- Style or formatting issues
+- Minor inconsistencies that don't affect outcomes
+- Nice-to-have improvements
+- Edge cases unlikely to occur
+- Unverified claims that are probably true
+
+When commands ask "did critic find significant issues?", use this criteria.
+
 ## Guidelines
 
 - Be harsh but fair - every criticism must have evidence
