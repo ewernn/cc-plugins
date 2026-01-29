@@ -1,0 +1,8 @@
+{
+  "name": "r",
+  "description": "Research tools: experiment planning, parallel investigation swarms, and specialized agents (investigator, reflector, critic, analyst)",
+  "version": "1.0.0",
+  "author": {
+    "name": "ewern"
+  }
+}

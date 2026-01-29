@@ -1,0 +1,6 @@
+{
+  "arxiv": {
+    "command": "python",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/arxiv_server.py"]
+  }
+}
