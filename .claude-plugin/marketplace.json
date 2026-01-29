@@ -1,0 +1,14 @@
+{
+  "name": "ewernn-plugins",
+  "owner": {
+    "name": "ewern"
+  },
+  "plugins": [
+    {
+      "name": "r",
+      "source": "./r",
+      "description": "Research tools: experiment planning, investigation swarms, specialized agents",
+      "version": "1.0.0"
+    }
+  ]
+}
