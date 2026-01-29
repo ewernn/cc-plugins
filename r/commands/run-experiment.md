@@ -47,7 +47,7 @@ This provides real-time visibility into progress.
 
 If `experiments/{name}/notepad.md` already exists, archive it first:
 ```bash
-mv notepad.md notepad_$(date +%Y%m%d_%H%M%S).md
+[ -f notepad.md ] && mv notepad.md notepad_$(date +%Y%m%d_%H%M%S).md
 ```
 
 Create fresh `experiments/{name}/notepad.md`:
