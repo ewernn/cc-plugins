@@ -65,6 +65,8 @@ Use AskUserQuestion to let user choose or suggest modifications.
 
 DO NOT proceed to Phase 6 until critical issues are addressed.
 
+If critic identifies gaps in understanding, GO BACK to Phase 2 and spawn more investigators. Phases are not strictly linear.
+
 ### Phase 6: Detail the Steps
 
 For each step in the plan:

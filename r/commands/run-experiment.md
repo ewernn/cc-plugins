@@ -181,6 +181,13 @@ Provide final summary:
 ## Guidelines
 
 - Update notepad frequently - it survives context compaction
-- Use analyst for non-trivial output verification
 - Don't continue past failures - stop and report clearly
 - Include specific file paths and metrics in all reports
+
+**Use agents as needed:**
+- **analyst** - Verify outputs, parse complex results, generate plots
+- **investigator** - If you need to understand unfamiliar code/scripts before running
+- **critic** - If results seem suspicious and you're unsure if it's a real problem
+- **reflector** - If mid-experiment findings suggest the approach needs rethinking
+
+You have Task tool - spawn agents whenever it would help, don't wait for designated steps.
