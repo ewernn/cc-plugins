@@ -13,9 +13,16 @@ If no argument provided, look for PLAN.md in current experiment directory.
 
 ### 1. Check Environment
 
-Run `nvidia-smi` to log GPU info:
+Check platform and log compute resources:
 ```bash
-nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv
+# Check if GPU available (Linux/CUDA)
+if command -v nvidia-smi &> /dev/null; then
+    nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv
+else
+    # Mac or CPU-only
+    echo "No nvidia-smi - checking for Mac GPU..."
+    system_profiler SPDisplaysDataType 2>/dev/null || echo "CPU-only environment"
+fi
 ```
 
 Note the machine and available resources.

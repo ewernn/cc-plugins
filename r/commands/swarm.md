@@ -40,21 +40,30 @@ Collect all investigator findings.
 Launch a reflector agent to:
 - Synthesize findings across all investigators
 - Identify gaps in understanding
-- Note contradictions
-- Decide if another wave is needed
+- Note contradictions and assumptions to verify
 
-**4. Decide: Continue or Complete**
+**4. Stress-Test (Final Wave Only)**
+
+On the final wave (when reflector says gaps are minor or 5 waves reached), launch a critic agent to:
+- Verify key claims from the synthesized findings
+- Check for falsehoods or unsupported conclusions
+- Ensure the understanding is solid before completing
+
+If critic finds significant issues, continue investigating.
+
+**5. Decide: Continue or Complete**
 
 Continue if:
 - Significant gaps remain
 - Contradictions need resolution
 - New important questions emerged
+- Critic found issues that need investigation
 - Less than 5 waves completed
 
 Complete if:
 - Core question is answered
 - Gaps are minor or out of scope
-- Sufficient confidence in understanding
+- Critic verified findings are solid
 - 5 waves reached
 
 ### Final Output
@@ -73,7 +82,7 @@ After all waves complete:
 ...
 
 ### Code/Source References
-- `path/file:line` - [what's there]
+- `/absolute/path/file:line` - [what's there]
 ...
 
 ### Remaining Uncertainties

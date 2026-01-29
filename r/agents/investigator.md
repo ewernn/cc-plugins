@@ -31,8 +31,8 @@ Return comprehensive findings with specific references:
 ...
 
 ## Code Locations
-- `path/to/file.py:123` - [what's there]
-- `path/to/other.py:45` - [what's there]
+- `/absolute/path/to/file.py:123` - [what's there]
+- `/absolute/path/to/other.py:45` - [what's there]
 
 ## Connections
 - [How this connects to other parts of the codebase]
@@ -44,7 +44,7 @@ Return comprehensive findings with specific references:
 ## Guidelines
 
 - Be thorough but focused on your specific angle
-- Always cite specific file paths and line numbers
+- Always cite specific ABSOLUTE file paths and line numbers
 - Note connections to other parts of the system
 - Flag anything surprising or unexpected
 - If you hit dead ends, say so and explain what you tried
