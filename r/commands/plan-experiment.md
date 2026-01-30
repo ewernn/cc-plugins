@@ -31,12 +31,12 @@ Key areas to explore:
 
 ### Phase 2.5: Synthesize Findings
 
-Launch a reflector agent to synthesize investigator findings:
+**MANDATORY**: Launch a reflector agent to synthesize investigator findings:
 - What's the coherent picture?
 - What gaps remain?
 - What assumptions are we making?
 
-Use this synthesis to inform approach proposals.
+Use this synthesis to inform approach proposals. Do not proceed to Phase 3 until synthesis is complete.
 
 ### Phase 3: Check Prerequisites
 
@@ -80,6 +80,13 @@ For each step in the plan:
 - Add a `#### Verify` block that prints actual data (input, output, scores)
 - Sample 3-5 results so run-experiment can check if scores match content
 - Document expected score ranges if known
+
+**Before writing custom code:**
+1. Check if existing scripts handle your use case (even partially)
+2. If writing custom code: read the IMPLEMENTATION of the most similar existing function and copy its patterns
+3. Custom code will be reviewed for bugs in Phase 7.5
+
+Custom code is acceptable when format conversion would be more complex than the custom code itself, or when combining parts from multiple existing functions.
 
 ### Phase 7: Write PLAN.md
 
@@ -148,6 +155,7 @@ Stop and verify:
 - Are success criteria measurable and realistic?
 - Are expected values consistent with prior data?
 - Any logical contradictions in the plan?
+- If custom code was written: review for bugs and pattern violations (see critic's "When Reviewing Code" section)
 
 Report critic findings to user along with plan summary.
 

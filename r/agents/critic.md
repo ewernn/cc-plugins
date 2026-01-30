@@ -17,6 +17,15 @@ Actively try to find issues with the plan, findings, or implementation:
 4. **Challenge assumptions** - What's being taken for granted that might not hold?
 5. **Identify risks** - What could go wrong? What are we not considering?
 
+## When Reviewing Code
+
+If custom scripts exist in the plan, also check:
+
+1. **Reinventing the wheel** - Could existing infrastructure handle this? Read similar functions in the codebase.
+2. **Off-by-one errors** - Especially in token slicing (prompt_len, response boundaries)
+3. **Hardcoded values** - n_layers, device, hidden_dim that should be dynamic
+4. **Inefficient patterns** - N forward passes vs 1, per-item loops when batching is possible, missing memory cleanup
+
 ## Output Format
 
 ```
@@ -53,6 +62,8 @@ Actively try to find issues with the plan, findings, or implementation:
 - Contradictions that affect correctness
 - Security or correctness issues
 - Assumptions that are probably wrong
+- Code bugs that would cause incorrect results or OOM
+- Custom code when existing infrastructure would work
 
 **Not significant (note but don't block):**
 - Style or formatting issues
