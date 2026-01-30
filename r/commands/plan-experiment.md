@@ -76,6 +76,11 @@ For each step in the plan:
 2. Check what outputs would be created
 3. Define verification criteria
 
+**For steps with LLM scoring/evaluation:**
+- Add a `#### Verify` block that prints actual data (input, output, scores)
+- Sample 3-5 results so run-experiment can check if scores match content
+- Document expected score ranges if known
+
 ### Phase 7: Write PLAN.md
 
 Create `experiments/{experiment_name}/PLAN.md` with:

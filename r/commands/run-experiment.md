@@ -96,6 +96,13 @@ ls [expected_path] | wc -l
 
 Compare to what PLAN.md says should be there.
 
+**For scored/evaluated outputs:**
+Execute any `#### Verify` blocks in PLAN.md that print actual data.
+- Read the printed samples
+- Ask: Does this score match this content?
+- Look for: repetition loops, empty values, scores clustering at exact boundaries
+- If 2+ samples look wrong, STOP and report
+
 ### 5. Analyze If Needed
 
 For steps with complex outputs:
@@ -103,6 +110,11 @@ For steps with complex outputs:
 - **Include in analyst prompt:** path to PLAN.md and the specific expected outcomes for this step
 - Analyst writes parsing script, checks metrics
 - Analyst reports if anything looks wrong
+
+**Result interpretation (all steps):**
+- Don't just check files exist — print summary stats + a few raw examples
+- For plots/images: read the image, check axes make sense, expected trends visible
+- If something looks off, note in notepad. If pattern persists across samples, STOP.
 
 ### 6. Decision Point
 
@@ -190,6 +202,7 @@ Provide final summary:
 - Update notepad frequently - it survives context compaction
 - Don't continue past failures - stop and report clearly
 - Include specific file paths and metrics in all reports
+- For LLM-scored outputs: always read actual samples, not just aggregate metrics
 
 **Use agents as needed:**
 - **analyst** - Verify outputs, parse complex results, generate plots
