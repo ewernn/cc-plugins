@@ -7,14 +7,44 @@ allowed-tools: ["Task", "Read", "Write", "Glob", "Grep", "AskUserQuestion"]
 
 Experiment goal: $ARGUMENTS
 
+## Questioning Philosophy
+
+This skill prioritizes THOROUGH questioning over speed. Ask many questions, get explicit answers.
+
+- **Default: Ask, don't assume.** If a decision could go multiple ways, ask.
+- **Block on answers.** Don't proceed with assumptions - wait for user input.
+- **Fine-grained decisions.** Break big choices into specific sub-questions.
+- **The more questions the better.** Users want precise plans, not fast plans.
+
+Every phase should generate questions. If a phase produces no questions, you probably missed something.
+
 ## Process
 
 ### Phase 1: Understand the Goal
 
-Parse the experiment goal. If unclear or too vague, use AskUserQuestion to clarify:
-- What hypothesis are we testing?
-- What would success look like?
-- Any constraints or preferences?
+Parse the experiment goal. Use AskUserQuestion to clarify ALL of:
+
+**Scope:**
+- What exactly are we measuring/testing?
+- What would success look like numerically?
+- What would failure look like?
+
+**Constraints:**
+- Which models/variants to use?
+- Which layers/positions to target?
+- Time/compute budget?
+
+**Methodology:**
+- Extraction method preference (mean_diff, probe, gradient)?
+- Steering direction (induce vs suppress)?
+- Coefficient search strategy (adaptive vs fixed)?
+
+**Edge cases:**
+- What if baseline is already saturated (score ~0 or ~100)?
+- What if coherence drops below threshold?
+- What if results contradict hypothesis?
+
+DO NOT proceed until these are answered. It's better to ask too many questions than to make assumptions.
 
 ### Phase 2: Explore the Codebase
 
@@ -47,6 +77,8 @@ Identify what needs to exist before running:
 
 Use investigator agents to verify these exist or note what's missing.
 
+**Questioning checkpoint:** Before proceeding, ask about any decisions that were made implicitly. Surface all assumptions about data formats, file locations, naming conventions.
+
 ### Phase 4: Propose Approaches
 
 Based on codebase exploration, propose 2-3 approaches:
@@ -55,6 +87,8 @@ Based on codebase exploration, propose 2-3 approaches:
 - Trade-offs between them
 
 Use AskUserQuestion to let user choose or suggest modifications.
+
+**Questioning checkpoint:** For the chosen approach, ask about every parameter that has a default. Don't assume defaults are correct for this experiment.
 
 ### Phase 5: Stress-Test the Approach
 
@@ -87,6 +121,8 @@ For each step in the plan:
 3. Custom code will be reviewed for bugs in Phase 7.5
 
 Custom code is acceptable when format conversion would be more complex than the custom code itself, or when combining parts from multiple existing functions.
+
+**Questioning checkpoint:** For each step, ask: "Is there anything about this step that could silently produce wrong results?" (e.g., wrong sign, wrong direction, off-by-one, wrong file)
 
 ### Phase 7: Write PLAN.md
 
@@ -149,13 +185,21 @@ Stop and verify:
 [Space for observations during run]
 ```
 
-### Phase 7.5: Final Critic Review
+### Phase 7.5: Final Critic Review + Loop Back
 
 **MANDATORY**: After writing PLAN.md, launch critic agent to verify:
 - Are success criteria measurable and realistic?
 - Are expected values consistent with prior data?
 - Any logical contradictions in the plan?
-- If custom code was written: review for bugs and pattern violations (see critic's "When Reviewing Code" section)
+- If custom code was written: review for bugs and pattern violations
+
+**If critic finds issues:**
+1. Categorize: Is this a methodology flaw, missing info, or implementation bug?
+2. For methodology flaws → GO BACK to Phase 4 or 5
+3. For missing info → Use AskUserQuestion immediately
+4. For implementation bugs → Fix and re-run critic
+
+DO NOT proceed to Phase 8 until critic passes or user explicitly approves despite issues.
 
 Report critic findings to user along with plan summary.
 
@@ -170,8 +214,11 @@ Use AskUserQuestion with options:
 
 ## Guidelines
 
-- **Ask questions whenever uncertain** - Don't wait for designated phases. If you need clarification about scope, priorities, constraints, or approach at ANY point, use AskUserQuestion immediately.
+- **Ask aggressively** - More questions = better plans. Don't optimize for speed.
+- **Block on answers** - Never proceed with assumptions. Wait for user input.
+- **Question your questions** - If you're not sure what to ask, ask what to ask.
 - Always read script argparse before including commands
 - Include verification steps for each major step
 - The plan should be detailed enough for /r:run-experiment to execute
 - Critic is MANDATORY at Phase 5 and Phase 7.5 - do not skip
+- Phase 7.5 can loop back - phases are not strictly linear

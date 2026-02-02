@@ -11,6 +11,29 @@ Topic to investigate: $ARGUMENTS
 
 Execute 1-5 investigation waves until sufficient understanding is reached.
 
+### Phase 0: Reconnaissance (Optional)
+
+Before spawning investigators, do a quick orientation to improve angle selection.
+
+**When to use:**
+- Open-ended topics where you don't know what exists
+- Unfamiliar codebases or domains
+- When the topic could mean many things
+
+**When to skip:**
+- Well-scoped questions with clear targets
+- Follow-up investigations where context is fresh
+- Time-sensitive requests
+
+**Reconnaissance steps:**
+1. Quick glob for relevant directories/files
+2. Grep for key terms from the topic
+3. Skim 2-3 most relevant files
+
+**Output:** Brief orientation (1-2 sentences) + refined investigator angles based on what actually exists.
+
+**Depth:** Scale to situation. 30 seconds for simple topics, 2-3 minutes for complex/unfamiliar ones.
+
 ### For Each Wave:
 
 **1. Spawn Investigators (Parallel)**
@@ -100,3 +123,4 @@ After all waves complete:
 - Reflect honestly about gaps - don't pretend understanding is complete
 - Stop early if the question is answered (don't always do 5 waves)
 - Include file:line references for all code findings
+- Phase 0 is optional - use judgment on when it adds value vs slows things down
