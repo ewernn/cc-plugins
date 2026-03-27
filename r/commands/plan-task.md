@@ -7,6 +7,10 @@ allowed-tools: ["Task", "Read", "Write", "Glob", "Grep", "AskUserQuestion"]
 
 Task goal: $ARGUMENTS
 
+## Setup: Load System Spec
+
+Read the autonomous workflow system spec at `${CLAUDE_PLUGIN_ROOT}/docs/system.md`. This contains failure modes (F1-F12), verification requirements, anti-patterns, and file formats. Reference it throughout planning.
+
 ## Setup: Locate Task Directory
 
 Before planning, find where tasks live:
