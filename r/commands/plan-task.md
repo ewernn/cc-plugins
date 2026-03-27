@@ -43,9 +43,11 @@ Before anything else, estimate the scale of this task:
 Use AskUserQuestion: "I'd estimate this is [tier] complexity. Does that match? Any constraints?"
 
 **Tier gating:**
-- **Small:** Skip Phases 2.5 and 5. Use simplified plan template (no stages, no checkpoints). Still ask questions in Phase 1.
+- **Small:** Skip Phase 2.5 (synthesis). Use simplified plan template (no stages, no checkpoints). Critic (Phase 5) is still MANDATORY — a 2-minute critic call caught a data corruption bug that execution missed.
 - **Medium:** Full process but 1 investigator instead of 2-3.
 - **Large:** Full process. Take your time. 100+ messages is fine.
+
+**NEVER skip critic review. For any tier.** The cost of one subagent call is negligible. The cost of a missed bug is not.
 
 ### Phase 1: Understand the Goal
 
@@ -99,9 +101,9 @@ Propose 2-3 approaches with trade-offs. Use AskUserQuestion to let user choose.
 
 **Questioning checkpoint:** For the chosen approach, ask about every detail that has a default or assumption.
 
-### Phase 5: Stress-Test the Approach (Medium/Large only)
+### Phase 5: Stress-Test the Approach
 
-**MANDATORY for Medium/Large**: Launch the critic agent to review the approach:
+**MANDATORY for ALL tiers**: Launch the critic agent to review the approach:
 - Are there flaws?
 - What could go wrong?
 - What assumptions are we making?
@@ -206,9 +208,9 @@ Using the task directory found in Setup, create `{tasks_dir}/{kebab-case-name}/`
 - [Common error] → [Fix]
 ```
 
-### Phase 7.5: Final Critic Review (Medium/Large only)
+### Phase 7.5: Final Critic Review
 
-**MANDATORY for Medium/Large**: Launch critic agent to verify:
+**MANDATORY for ALL tiers**: Launch critic agent to verify:
 - Are success criteria measurable?
 - Any logical contradictions?
 - Any missed edge cases?
@@ -228,5 +230,5 @@ Show summary of the plan, then ask for approval:
 - **Block on answers** - Never proceed with assumptions. Wait for user input.
 - **Question your questions** - If you're not sure what to ask, ask what to ask.
 - The plan should be detailed enough for someone (or run-experiment) to execute without judgment calls
-- Critic is MANDATORY for Medium/Large at Phase 5 and Phase 7.5
+- Critic is MANDATORY for ALL tiers at Phase 5 and Phase 7.5 — no exceptions
 - Phase 7.5 can loop back - phases are not strictly linear
