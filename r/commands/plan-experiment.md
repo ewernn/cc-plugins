@@ -7,6 +7,16 @@ allowed-tools: ["Task", "Read", "Write", "Glob", "Grep", "AskUserQuestion"]
 
 Experiment goal: $ARGUMENTS
 
+## Setup: Locate Task Directory
+
+Before planning, find where tasks live:
+
+1. Search for `task_index.md` in the repo: `find . -name "task_index.md" -not -path "*/node_modules/*" | head -1`
+2. If found → task directory is its parent
+3. If not found → use AskUserQuestion: "Where should task directories live? (e.g., dev/autonomous-workflow/tasks/)"
+
+Store the path for Phase 7.
+
 ## Questioning Philosophy
 
 This skill prioritizes THOROUGH questioning over speed. Ask many questions, get explicit answers.
@@ -20,44 +30,54 @@ Every phase should generate questions. If a phase produces no questions, you pro
 
 ## Process
 
+### Phase 0: Assess Complexity
+
+Before anything else, estimate the scale of this task:
+
+| Tier | Signals | Planning depth | Example |
+|---|---|---|---|
+| **Small** | Single script, known method, <1 day | 5-15 steps, 1 stage | "Run extraction for trait X" |
+| **Medium** | Multiple scripts, some unknowns, 1-3 days | 15-40 steps, 2-3 stages | "Compare steering across 3 models" |
+| **Large** | Novel methodology, many unknowns, 3+ days | 40-100+ steps, 4-7 stages | "Build new evaluation pipeline" |
+
+Use AskUserQuestion: "I'd estimate this is [tier] complexity. Does that match your expectation? Any constraints on timeline?"
+
+**Scaling rule:** Planning effort scales with tier. Large tasks can take 100+ messages and days to plan. That's fine. A bad plan executed fast is worse than a good plan that took a week.
+
 ### Phase 1: Understand the Goal
 
 Parse the experiment goal. Use AskUserQuestion to clarify ALL of:
 
 **Scope:**
-- What exactly are we measuring/testing?
-- What would success look like numerically?
-- What would failure look like?
+- What exactly are we doing?
+- What does success look like? (measurable — numbers, tests passing, specific behavior)
+- What does failure look like?
 
 **Constraints:**
-- Which models/variants to use?
-- Which layers/positions to target?
+- What tools/frameworks/APIs are involved?
+- What can't we change? (dependencies, interfaces, data formats)
 - Time/compute budget?
 
 **Methodology:**
-- Extraction method preference (mean_diff, probe, gradient)?
-- Steering direction (induce vs suppress)?
-- Coefficient search strategy (adaptive vs fixed)?
+- What approach are we taking? Are there alternatives?
+- What prior work exists (in this repo or elsewhere)?
+- Any conventions or patterns we must follow?
 
 **Edge cases:**
-- What if baseline is already saturated (score ~0 or ~100)?
-- What if coherence drops below threshold?
-- What if results contradict hypothesis?
+- What if the approach doesn't work?
+- What could silently produce wrong results?
+- What are the riskiest assumptions?
 
 DO NOT proceed until these are answered. It's better to ask too many questions than to make assumptions.
 
 ### Phase 2: Explore the Codebase
 
 Launch 2-3 investigator agents to understand:
-- What scripts/tools exist for this kind of experiment
-- What similar experiments have been done before
-- What data/vectors/models are available
+- What code/tools exist for this kind of work
+- What similar work has been done before (check git log, existing dirs)
+- What dependencies, APIs, or data are involved
 
-Key areas to explore:
-- `extraction/` - vector extraction pipeline
-- `inference/` - activation capture and projection
-- `analysis/` - steering, benchmarks, model comparison
-- `experiments/` - existing experiment configs and outputs
+Each investigator should take a DIFFERENT angle — don't overlap.
 
 ### Phase 2.5: Synthesize Findings
 
@@ -71,9 +91,9 @@ Use this synthesis to inform approach proposals. Do not proceed to Phase 3 until
 ### Phase 3: Check Prerequisites
 
 Identify what needs to exist before running:
-- Required trait datasets in `datasets/traits/`
-- Required model configs in `experiments/*/config.json`
-- Required calibration files, vectors, etc.
+- Required files, configs, dependencies
+- Required APIs, services, or access
+- Required data or test fixtures
 
 Use investigator agents to verify these exist or note what's missing.
 
@@ -103,12 +123,37 @@ If critic identifies gaps in understanding, GO BACK to Phase 2 and spawn more in
 
 **Loop limit:** If you've done 3 Phase 2→5 cycles without resolution, STOP and use AskUserQuestion to get user guidance on how to proceed.
 
-### Phase 6: Detail the Steps
+### Phase 6: Decompose into Stages and Steps
 
-For each step in the plan:
+**This is the most important phase.** A plan fails or succeeds based on decomposition quality.
+
+#### 6a: Break into Stages
+
+Group work into sequential stages. Each stage has a clear deliverable and can be verified independently.
+
+Example (from a real physics paper done with Claude — 102 tasks across 7 stages):
+```
+Stage 1: Kinematics (14 tasks)
+Stage 2: NLO Structure (12 tasks)
+Stage 3: SCET Factorization (18 tasks)
+Stage 4: Anomalous Dimensions (15 tasks)
+Stage 5: Resummation (20 tasks)
+Stage 6: Matching + Numerics (13 tasks)
+Stage 7: Documentation (10 tasks)
+```
+
+For Medium/Large tasks, use AskUserQuestion: "Here are the stages I see: [list]. Does this decomposition make sense? What's missing?"
+
+#### 6b: Break Each Stage into Atomic Steps
+
+**The atomic step test:** Can Claude complete this step in one focused session (~30 min) without losing direction? If not, break it smaller.
+
+For EACH step:
 1. Read the relevant script's argparse to understand exact flags
-2. Check what outputs would be created
-3. Define verification criteria
+2. Write the exact command with all flags resolved (no placeholders that require judgment)
+3. List exact expected outputs (file paths, row counts, value ranges)
+4. Define verification: what to check AND what "wrong" looks like
+5. State dependencies: which prior steps must be verified before this one starts
 
 **For steps with LLM scoring/evaluation:**
 - Add a `#### Verify` block that prints actual data (input, output, scores)
@@ -122,11 +167,42 @@ For each step in the plan:
 
 Custom code is acceptable when format conversion would be more complex than the custom code itself, or when combining parts from multiple existing functions.
 
-**Questioning checkpoint:** For each step, ask: "Is there anything about this step that could silently produce wrong results?" (e.g., wrong sign, wrong direction, off-by-one, wrong file)
+#### 6c: Question Every Step
 
-### Phase 7: Write PLAN.md
+For EACH step, ask yourself (and the user if unsure):
+- "Is there anything about this step that could silently produce wrong results?" (wrong sign, wrong direction, off-by-one, wrong file)
+- "What's the dumbest mistake Claude could make here?" Then add a verification check for it.
+- "If this step fails, what's the fallback?" Document in the plan's "If Stuck" section.
 
-Create `experiments/{experiment_name}/PLAN.md` with:
+**For Large tasks:** Use AskUserQuestion to walk through the steps with the user. Show 5-10 steps at a time, get feedback, iterate. Don't dump 80 steps and ask "looks good?"
+
+#### 6d: Add Checkpoints Between Stages
+
+After every stage boundary, insert a checkpoint:
+```markdown
+### Checkpoint: After Stage N
+Stop and verify before proceeding:
+- [ ] All Stage N outputs exist and are verified
+- [ ] No error patterns carried forward from earlier stages
+- [ ] Results so far are consistent with hypothesis
+- [ ] Notepad is up to date with all step results
+```
+
+Checkpoints are where run-experiment should pause, assess, and potentially re-plan.
+
+### Phase 7: Create Task Directory and Write Plan
+
+Using the task directory found in Setup, create `{tasks_dir}/{kebab-case-name}/`:
+
+1. Create the directory
+2. Write `{name}_plan.md` (the plan — see template below)
+3. Write `{name}_notepad.md` (header only: Status: NOT_STARTED, Started/Updated timestamps)
+4. Write `{name}_decision_tree.md` (header only: "# {Task Name} — Decision Tree")
+5. Write `{name}_user_messages.md` (capture the original user goal from $ARGUMENTS)
+6. Create `results/` subdirectory
+7. Add a row to `task_index.md`: task name, IN_PROGRESS, start time PST, one-line description
+
+Plan template:
 
 ```markdown
 # Experiment: [Name]
@@ -137,6 +213,9 @@ Create `experiments/{experiment_name}/PLAN.md` with:
 ## Hypothesis
 [What we expect to find]
 
+## Complexity
+[Small / Medium / Large] — [N] stages, [N] steps, estimated [N] hours
+
 ## Success Criteria
 - [ ] [Measurable outcome 1]
 - [ ] [Measurable outcome 2]
@@ -145,10 +224,11 @@ Create `experiments/{experiment_name}/PLAN.md` with:
 - [What must exist before starting]
 - Commands to verify they exist
 
-## Steps
+## Stage 1: [Name] ([N] steps)
 
-### Step 1: [Name]
+### 1.1: [Name]
 **Purpose**: [Why this step]
+**Depends on**: [none / step X.Y verified]
 
 **Read first**:
 - `path/to/script.py` - check args
@@ -159,20 +239,26 @@ python path/to/script.py --flag value
 ```
 
 **Expected output**:
-- `path/to/output/` - [description]
+- `path/to/output/` - [description, specific: N files, ~X rows each]
 
 **Verify**:
 ```bash
 ls path/to/output/ | wc -l  # Should be N
 ```
 
-### Step 2: [Name]
+**If wrong**: [What "wrong" looks like and what to check]
+
+### 1.2: [Name]
 ...
 
-### Checkpoint: [After Step N]
-Stop and verify:
-- [What to check]
-- [What to look for]
+### Checkpoint: After Stage 1
+- [ ] All Stage 1 outputs exist and are verified
+- [ ] Results consistent with hypothesis
+- [ ] No error patterns carried forward
+- [ ] Notepad updated with all results
+
+## Stage 2: [Name] ([N] steps)
+...
 
 ## Expected Results
 [Table of expected vs what would indicate success/failure]
