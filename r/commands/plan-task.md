@@ -13,7 +13,8 @@ Before planning, find where tasks live:
 
 1. Search for `task_index.md` in the repo: `find . -name "task_index.md" -not -path "*/node_modules/*" | head -1`
 2. If found → task directory is its parent
-3. If not found → use AskUserQuestion: "Where should task directories live? (e.g., dev/autonomous-workflow/tasks/)"
+3. If not found → use AskUserQuestion: "Where should task directories live? (default: dev/autonomous-workflow/tasks/)"
+4. If directory doesn't exist → create it + create `task_index.md` with empty table header
 
 Store the path for Phase 7.
 
