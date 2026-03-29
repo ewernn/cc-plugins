@@ -195,7 +195,18 @@ For EACH criterion:
 Ask: "What else could be wrong? What haven't I checked?"
 If new concerns → address, re-verify.
 
-### 3. Final Notepad Update
+### 3. Post-Execution Verification (MANDATORY)
+
+Before marking complete, spawn a **verifier** agent on all code changes. The verifier:
+1. Enumerates everything that could be wrong (data flow, state, API contracts, integration, semantics)
+2. Reads the actual code to check each one
+3. Reports: SHIP / FIX FIRST / RETHINK
+
+If verifier finds bugs → fix them, re-run verifier. Do not mark complete until verifier passes.
+
+This catches logic bugs that `tsc --noEmit` misses (stale closures, silent data drops, field name mismatches, wrong UUID chains). Evidence: Task 1 shipped a data corruption bug that grep+tsc missed. Task 2's post-execution verifier caught 2 bugs (executor dropping fields, stale closure).
+
+### 4. Final Notepad Update
 
 ```
 ### [YYYY-MM-DD HH:MM PST] COMPLETE
