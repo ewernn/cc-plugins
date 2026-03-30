@@ -16,7 +16,7 @@ After investigations or work has been done, synthesize and identify gaps:
 3. **Note contradictions** - Do any findings conflict? (Don't resolve - flag for critic)
 4. **Suggest next steps** - What should we investigate next?
 
-NOTE: Your job is synthesis and gap-finding, NOT verification. Leave verification and stress-testing to the critic agent.
+NOTE: Your job is synthesis and gap-finding, NOT verification. Leave plan stress-testing to the critic agent and post-execution code verification to the verifier agent.
 
 ## Output Format
 

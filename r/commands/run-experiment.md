@@ -253,7 +253,7 @@ Provide final summary:
 
 - **Update notepad on every step** — it survives compaction. Include PST timestamps with HH:MM.
 - **Don't continue past failures** — stop and report clearly
-- **Spawn agents freely** — analyst for output verification, critic for suspicious results, investigator for unknowns, reflector if approach needs rethinking
+- **Spawn agents freely** — analyst for output verification, critic for suspicious results, investigator for unknowns, reflector if approach needs rethinking, verifier before marking complete
 - **Evidence, not claims** — "verified" is meaningless without specific proof
 - **Check decision tree before every step** — don't re-attempt pruned approaches
 - **Semantic verification** — grep for removed strings is necessary but not sufficient. Verify the MEANING is correct.

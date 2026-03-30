@@ -150,9 +150,10 @@ WHEN all steps done OR agent claims "done":
     ITERATE (update plan if needed, re-execute failed steps)
 
   IF all PASS:
-    META-CHECK: "What else could be wrong? What haven't I checked?"
-    IF new concerns → address, re-verify
-    IF none → COMPLETE
+    SPAWN verifier on all code changes (MANDATORY)
+    Verifier enumerates possible bugs → reads code → checks each
+    IF verifier finds bugs → fix, re-run verifier
+    IF verifier passes → COMPLETE
 
   MAX iterations: 5 (configurable per task)
   IF max reached without all PASS → ESCALATE to user with status report
@@ -263,14 +264,16 @@ Each entry: `### [YYYY-MM-DD HH:MM PST] Input` followed by verbatim message, the
 | Agent | Role | When | Addresses |
 |---|---|---|---|
 | Investigator (×2-3) | Explore codebase/context, different angles | Phase 1, Phase 3 unknowns | F6, F12 |
-| Critic | Challenge plans, verify claims, find errors | Phase 2 (mandatory), Phase 4, Phase 5 | F1, F2, F8, F9 |
+| Critic | Challenge plans and assumptions | Phase 2 (mandatory), Phase 5 | F1, F2, F8, F9 |
 | Reflector | Synthesize findings, identify gaps | After investigation waves, after failures | F3, F10 |
 | Analyst | Parse outputs, extract metrics, compare | Phase 4 complex outputs | F1, F2 |
+| Verifier | Post-execution code verification — enumerates all possible bugs, reads code, checks each | After execution, before COMPLETE (mandatory) | F1, F12 |
 | Side-Thought (×2-3) | Divergent exploration of tangential ideas | Phase 3, after each major step | P4, P6 |
 
 **Spawning rules:**
 - Investigator: always parallel, different angles, no overlap
-- Critic: always after plans AND after verification — never skip [mandatory]
+- Critic: always after plans — never skip [mandatory]
+- Verifier: always after execution, before marking COMPLETE — never skip [mandatory]. Catches logic bugs tsc misses.
 - Side-thoughts: background (non-blocking); results incorporated when ready
 - OK to block-wait on subagent output when it's a dependency
 
@@ -357,6 +360,7 @@ Wave 7: RECOMMEND (1 reflector — final output)
 | Say "verified" | F1: meaningless without evidence | Say "verified — evidence: {X}" |
 | Use "this becomes" / "for consistency" | F9: hides skipped steps | Show every step or say "I don't know" |
 | Assume from pattern-match | F12: different context = different answer | Read actual code/formula |
+| Skip post-execution verifier | tsc misses logic bugs (stale closures, dropped fields, wrong UUIDs) | Spawn verifier before COMPLETE — always |
 
 ---
 
