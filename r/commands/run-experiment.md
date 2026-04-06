@@ -1,5 +1,5 @@
 ---
-description: Execute a plan autonomously. Runs steps, verifies outputs, uses analyst to check results. Only stops if something goes wrong.
+description: Execute a plan as a research agent. Runs steps, analyzes results, investigates leads, and adapts. Produces useful findings even on incomplete runs.
 allowed-tools: ["Task", "Read", "Write", "Bash", "Glob", "Grep", "TaskCreate", "TaskUpdate", "TaskList"]
 ---
 
@@ -13,14 +13,13 @@ If no argument provided, look for a plan file (`*_plan.md` or `PLAN.md`) in the 
 
 ### 1. Load System Spec
 
-Read the autonomous workflow system spec at `${CLAUDE_PLUGIN_ROOT}/docs/system.md`. Pay attention to:
-- Failure modes F1-F12 (especially F1: fake verification, F3: skipping hard parts)
-- Verification requirements (evidence, not claims)
+Read `${CLAUDE_PLUGIN_ROOT}/docs/system.md`. Focus on:
+- Failure modes F1-F12 (especially F1: fake verification, F3: skipping hard parts, F4: premature completion)
+- Evidence-based verification (not claims)
 - Anti-patterns table
 
 ### 2. Check Environment
 
-Log platform and compute resources:
 ```bash
 if command -v nvidia-smi &> /dev/null; then
     nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv
@@ -32,31 +31,20 @@ fi
 ### 3. Load Plan
 
 Read the plan file. Parse:
-- **Stages** and their names (if hierarchical plan)
-- **Steps** within each stage (numbered 1.1, 1.2, ... or flat 1, 2, ...)
-- **Checkpoints** between stages (blocking verification gates)
-- **Dependencies** per step (`Depends on` field)
-- **Expected outputs** and verification criteria per step
-- **"If wrong"** fields per step (what failure looks like)
-- **"If Stuck"** section (global fallback guidance)
-- **Complexity tier** if present (Small/Medium/Large)
+- **Hypothesis** — the scientific prediction
+- **Stages** and steps within each stage
+- **Checkpoints** between stages
+- **Dependencies**, expected outputs, verification criteria, "If wrong" fields
+- **"If Stuck"** section
+- **Stopping criteria** — what "done" looks like (semantic, not just step count)
 
 Also read:
 - **Notepad** (`*_notepad.md`) — catch up on progress if resuming
-- **Decision tree** (`*_decision_tree.md`) — check for pruned approaches before attempting anything
+- **Decision tree** (`*_decision_tree.md`) — check for pruned approaches
 
-### 4. Create Task List
+### 4. Initialize Files
 
-Create tasks grouped by stage (if stages exist):
-- For staged plans: one task per step, subject includes stage context (e.g., "Stage 1 / 1.1: Extract vectors")
-- For flat plans: one task per step
-
-### 5. Initialize or Resume Notepad
-
-If notepad exists and has entries → **resume from last verified step** (append, don't archive).
-If notepad exists with header only → start fresh (append-only).
-If no notepad exists → create one:
-
+**Notepad** (if new):
 ```markdown
 # {Task Name} — Notepad
 
@@ -67,193 +55,232 @@ If no notepad exists → create one:
 ---
 ```
 
+**Findings** (if new):
+```markdown
+# {Task Name} — Findings
+
+## Observations
+_Append here during the run when something notable happens._
+
+## Findings
+_Written at completion — reconciled claims with evidence._
+```
+
+### 5. Create Task List
+
+One task per step, grouped by stage if applicable.
+
+---
+
 ## Execution Loop
 
-For each step in the plan (respecting stage order):
+For each step in the plan (respecting stage order).
+
+**If a stage has only key steps (no exact commands):** Decompose it into atomic steps before executing. Use the same criteria as plan-experiment Phase 6b — read relevant scripts' argparse, write exact commands, define expected outputs and verification. You have context from prior stages that the planner didn't have. Use it.
+
+For each step:
 
 ### 1. Check Dependencies
 
-Read the `**Depends on**` field. If it references a prior step:
-- Confirm that step is marked PASSED in the notepad
-- If dependency not met → STOP, report which dependency is unresolved
+Confirm referenced prior steps are marked PASSED in the notepad.
+If dependency not met → STOP, report which dependency is unresolved.
 
 ### 2. Check Decision Tree
 
-Read the decision tree for any pruned approaches related to this step.
-- If the approach we're about to try appears under a `D{N}-PRUNED` section, check the `DO NOT RETRY UNLESS` condition
-- If condition is not met → skip, note in notepad, escalate
+If the approach appears under a pruned section, check the `DO NOT RETRY UNLESS` condition.
+If not met → skip, note in notepad.
 
 ### 3. Re-Anchor
 
-Re-read the plan (current step section) and notepad (last few entries).
-This prevents context drift on long tasks. [Addresses F6]
+Re-read the plan (current step + hypothesis) and the last ~10 notepad entries.
+Prevents context drift on long tasks. [Addresses F6]
 
-### 4. Mark In Progress
+### 4. Execute
 
-Update the task to `in_progress`. Add a notepad entry:
-```
-### [YYYY-MM-DD HH:MM PST] Step N: {name} — STARTED
-- Action: {what is being done}
-```
+If step involves a script:
+- Read the script's argparse/flags first
+- Verify flags match the plan
+- Check existing outputs (don't re-run completed work)
 
-### 5. Read Before Run
+Then run the step.
 
-If step involves running a script:
-- Read the script's argparse/flags
-- Verify flags match what's in the plan
-- Check existing outputs (don't re-run if already done)
+### 5. Verify
 
-### 6. Execute
+**Produce evidence, not claims.** [Addresses F1]
 
-Run the step. For code changes, make the edits. For scripts, run the command.
-
-### 7. Verify Output
-
-**Verification must produce EVIDENCE, not claims.** [Addresses F1]
-
-Check the plan's `**Verify**` field for this step. Also check `**If wrong**` to know what failure looks like.
+Check the plan's verification criteria and "If wrong" field.
 
 ```
 IF oracle/reference exists:
   COMPARE output vs oracle → record evidence
-ELSE IF automated test/command exists:
+ELSE IF automated test exists:
   RUN it → record output
 ELSE:
-  SPAWN critic: "verify this result. evidence: {X}. expected: {Y}"
+  SPAWN analyst or critic to verify
 ```
 
-**"Check again" loop:** After finding and fixing issues, re-verify. Repeat until clean (max 3 iterations). [Addresses F5]
+"Check again" loop: after fixing issues, re-verify (max 3 iterations). [Addresses F5]
 
-Add notepad entry:
+Record in notepad:
 ```
 ### [YYYY-MM-DD HH:MM PST] Step N: {name} — VERIFIED
 - Method: {how verified}
-- Evidence: {specific — test output, diff, metric, command output}
-- Clean: {yes | no — if no, details}
+- Evidence: {specific output, metric, diff}
+- Clean: {yes | no — details if no}
 ```
 
-### 8. Spawn Side-Thoughts
+### 6. Decision Point
 
-After each major step, spawn 2-3 background agents:
-- "Is there a simpler approach to what we just did?"
-- "What could go wrong with this result downstream?"
-- "What related thing should we check?"
+**Verified and clean** → mark task complete, continue.
 
-Log results in notepad when they return. [Addresses P4, P6]
+**Something wrong:**
+- Check plan's "If wrong" field
+- Check "If Stuck" section
+- Try fix (max 3 attempts)
+- If still failing → record FAILURE in notepad + decision tree, STOP
 
-### 9. Decision Point
+**Something surprising** (result is correct but unexpected):
+- Write an observation to findings.md
+- Continue — the stage judgment will handle deeper investigation
 
-**If verified and clean:**
-- Mark task complete
-- Continue to next step
+Record failures in notepad with: what was tried, error details, root cause analysis, what this rules out, decision tree reference.
 
-**If something is wrong:**
-- Check `**If wrong**` field in the plan for this step
-- Check `## If Stuck` section for general guidance
-- Try fix if applicable (max 3 attempts)
-- If still failing → record FAILURE in notepad + decision tree, STOP and report
+---
 
-Record failures:
-```
-### [YYYY-MM-DD HH:MM PST] FAILURE: {what failed}
-- Attempted: {what was tried}
-- Error: {specific error/evidence}
-- Root cause: {analysis}
-- Rules out: {what this means for future attempts}
-- → See decision_tree.md D{N}
-```
+## Stage Judgment
 
-### 10. At Checkpoints (Staged Plans)
+**After completing each stage checkpoint — this is the core of the research agent.**
 
-When reaching a `### Checkpoint: After Stage N` section:
+Don't just verify outputs exist. Think about what the results mean.
 
-**This is a BLOCKING gate, not a summary step.**
+### 1. Verify the Checkpoint
 
-1. Verify every checklist item in the checkpoint block
-2. Run analyst on all outputs from this stage
-3. Confirm no error patterns carried forward from earlier stages
-4. Update notepad with checkpoint status
+Confirm all checkpoint items pass. Run analyst on stage outputs if applicable.
 
-**Only proceed to next stage if ALL checkpoint items pass.** If any fail → treat as a failed step (fix or STOP).
+### 2. Reflect on Results
 
-## Completion (Ralph Protocol)
+Answer these questions (write answers to notepad):
 
-When all steps are done:
+- **What did this stage reveal?** 2-3 sentences on what we learned.
+- **Does the hypothesis still hold?** If results contradict expectations, say so explicitly.
+- **What assumptions were violated?** Anything surprising or different from what the plan predicted.
+- **What questions did this raise?** List them — even obvious ones.
+
+### 3. Investigate Leads
+
+Look at the questions from step 2. For the top 2-3 substantive questions:
+
+- Spawn investigator agents (parallel where independent)
+- Wait for results
+- Write findings to notepad
+
+This is what separates a research agent from a plan executor. **Do not skip this.** The OA experiment case study: the agent identified 5 gaps in its own analysis but never investigated any of them. The user had to ask "should we investigate these?" That failure is what this step prevents.
+
+### 4. Assess Next Stage
+
+Based on what you learned:
+
+- **Plan still makes sense** → continue to next stage
+- **Adjustments needed** → document what changes and why in notepad, adapt your approach for the next stage. You don't need to formally amend the plan — just note the adjustment and proceed intelligently.
+- **Fundamentally broken** → write what you've learned to findings.md and stop. A well-documented partial result is valuable.
+
+### 5. Correction Propagation
+
+If any result from this stage corrects or changes a prior finding:
+- List all downstream work that depends on the changed result
+- Mark those results as potentially stale in notepad
+- Re-verify where practical, or flag clearly
+
+---
+
+## Completion
+
+When all steps are done (or stopping criteria met):
 
 ### 1. Check Success Criteria
 
-Read the `## Success Criteria` section from the plan.
-
-For EACH criterion:
+For EACH criterion in the plan:
 - Find specific evidence it was met
-- If evidence exists and valid → PASS
-- If evidence is unclear → SPAWN critic to assess
-- If no evidence → FAIL (go back to execute)
+- If unclear → spawn critic to assess
+- If no evidence → go back and do the work
 
-### 2. Meta-Check
+### 2. Investigate Remaining Leads
 
-Ask: "What else could be wrong? What haven't I checked?"
-If new concerns → address, re-verify.
+**"What questions did this experiment raise that I haven't answered?"**
 
-### 3. Post-Execution Verification (MANDATORY)
+List them. For the top 2-3 substantive questions, investigate now. This is the final forcing function — don't declare victory while interesting leads sit uninvestigated.
 
-Before marking complete, spawn a **verifier** agent on all code changes. The verifier:
-1. Enumerates everything that could be wrong (data flow, state, API contracts, integration, semantics)
-2. Reads the actual code to check each one
-3. Reports: SHIP / FIX FIRST / RETHINK
+If questions remain but are genuinely out of scope, note them in findings.md under "Future Directions."
 
-If verifier finds bugs → fix them, re-run verifier. Do not mark complete until verifier passes.
+### 3. Write Reconciled Findings
 
-This catches logic bugs that `tsc --noEmit` misses (stale closures, silent data drops, field name mismatches, wrong UUID chains). Evidence: Task 1 shipped a data corruption bug that grep+tsc missed. Task 2's post-execution verifier caught 2 bugs (executor dropping fields, stale closure).
+Review all observations from findings.md. Write the **Findings** section:
+- Reconcile any contradictions between early and late observations
+- For each finding: claim, evidence, implication
+- Include: CONFIRMED / REFUTED / INCONCLUSIVE status
+- Note any corrections made during the run and what they affected
 
-### 4. Final Notepad Update
+### 4. Hypothesis Assessment
+
+```
+## Hypothesis Assessment
+- Hypothesis: {verbatim from plan}
+- Result: CONFIRMED | REFUTED | INCONCLUSIVE | PARTIALLY_CONFIRMED
+- Evidence: {specific results}
+- Caveats: {limitations}
+```
+
+### 5. Post-Execution Verification (for code changes)
+
+Spawn a **verifier** agent on all code changes:
+1. Enumerate possible bugs (data flow, state, API contracts, semantics)
+2. Read actual code to check each
+3. Report: SHIP / FIX FIRST / RETHINK
+
+Fix any bugs found. Don't mark complete until verifier passes.
+
+### 6. Final Report
 
 ```
 ### [YYYY-MM-DD HH:MM PST] COMPLETE
-## Final Status: COMPLETE
 
 ## Success Criteria
 - [x] Criteria 1: {evidence}
-- [x] Criteria 2: {evidence}
 
-## Summary
-{Key outcomes in 3-5 bullets}
+## Hypothesis Assessment
+{from step 4}
+
+## Key Findings
+{top 3-5 from findings.md}
+
+## Adjustments Made
+{any deviations from original plan and why}
+
+## Remaining Questions
+{leads not investigated, future directions}
 ```
 
-### 4. Update Task Index
+Update task index if it exists.
 
-If `task_index.md` exists, update the task's status to COMPLETE.
-
-### 5. Report
-
-Provide final summary:
-- What was accomplished
-- Key results with evidence
-- Any issues encountered
-- Suggested next steps
+---
 
 ## Error Handling
 
-**Step fails:**
-- Check `**If wrong**` field for this step (inline guidance)
-- Check `## If Stuck` section (global fallback)
-- Try fix if applicable
-- Otherwise STOP and report
+**Step fails:** Check "If wrong" → "If Stuck" → try fix (3x) → STOP and report.
 
-**Output doesn't match expected:**
-- Spawn analyst to compare actual vs expected
-- Spawn critic if results seem suspicious
-- STOP and report with details
+**Out of resources:** Log to notepad, STOP, report constraints.
 
-**Out of memory / resource issues:**
-- Log to notepad
-- STOP and report constraints
+**Overnight / autonomous runs:** Do NOT stop and wait for user input on non-fatal issues. Make your best judgment, document the reasoning in notepad, and continue. A partial run with documented decisions is more valuable than a stopped run waiting for a sleeping user. Reserve stopping for: (a) resource failures, (b) cascading errors where continuing would waste significant compute, (c) results so unexpected that any direction could be wrong.
+
+---
 
 ## Guidelines
 
-- **Update notepad on every step** — it survives compaction. Include PST timestamps with HH:MM.
-- **Don't continue past failures** — stop and report clearly
-- **Spawn agents freely** — analyst for output verification, critic for suspicious results, investigator for unknowns, reflector if approach needs rethinking, verifier before marking complete
-- **Evidence, not claims** — "verified" is meaningless without specific proof
-- **Check decision tree before every step** — don't re-attempt pruned approaches
-- **Semantic verification** — grep for removed strings is necessary but not sufficient. Verify the MEANING is correct.
+- **Stage judgment is mandatory.** This is what makes it a research agent. Don't reduce it to "outputs exist, moving on."
+- **Investigate leads before moving on.** When you identify a gap or question, explore it. The biggest failure mode is identifying problems and not pursuing them.
+- **Write observations when surprised, not per-step.** Most steps will go as expected. Write to findings.md when something genuinely notable happens.
+- **Trace corrections.** When you fix a number, ask "what else used this number?" and check those too.
+- **Decide autonomously on overnight runs.** Document your reasoning. Don't block on user input for judgment calls.
+- **Evidence, not claims.** "Verified" without specific proof is meaningless.
+- **Check decision tree before every step.** Don't re-attempt pruned approaches.
+- **Proportional investigation.** A small surprise gets a quick check. A big surprise gets deep investigation. Use judgment, not budgets.

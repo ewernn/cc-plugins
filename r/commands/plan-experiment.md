@@ -148,9 +148,13 @@ Stage 7: Documentation (10 tasks)
 
 For Medium/Large tasks, use AskUserQuestion: "Here are the stages I see: [list]. Does this decomposition make sense? What's missing?"
 
-#### 6b: Break Each Stage into Atomic Steps
+#### 6b: Break Each Stage into Steps
 
-**The atomic step test:** Can Claude complete this step in one focused session (~30 min) without losing direction? If not, break it smaller.
+**Stage 1** gets full detail — exact commands, expected outputs, verification. Later stages get lighter treatment.
+
+**For Stage 1 steps (and any stage where the approach is clear):**
+
+The atomic step test: Can Claude complete this step in ~30 min without losing direction? If not, break smaller.
 
 For EACH step:
 1. Read the relevant script's argparse to understand exact flags
@@ -158,6 +162,17 @@ For EACH step:
 3. List exact expected outputs (file paths, row counts, value ranges)
 4. Define verification: what to check AND what "wrong" looks like
 5. State dependencies: which prior steps must be verified before this one starts
+
+**For later stages (where approach depends on earlier results):**
+
+Don't over-specify. Later stages often depend on what Stage 1 reveals. Write:
+1. **Stage purpose** — what this stage accomplishes
+2. **Key steps** — what needs to happen (not exact commands)
+3. **Stopping criteria** — how to know this stage is done (semantic, not step count)
+4. **Depends on** — what from prior stages this stage needs
+5. **Predictions** — what results you expect, so run-experiment can judge whether to adjust
+
+Run-experiment will decompose later stages into atomic steps at execution time, when it has context from prior stages. A plan that over-specifies later stages is fragile — it assumes you know the results before running.
 
 **For steps with LLM scoring/evaluation:**
 - Add a `#### Verify` block that prints actual data (input, output, scores)
@@ -190,9 +205,10 @@ Stop and verify before proceeding:
 - [ ] No error patterns carried forward from earlier stages
 - [ ] Results so far are consistent with hypothesis
 - [ ] Notepad is up to date with all step results
+- [ ] Stage judgment complete (what did we learn? any leads to investigate?)
 ```
 
-Checkpoints are where run-experiment should pause, assess, and potentially re-plan.
+Checkpoints are where run-experiment pauses, reflects on results, investigates leads, and decides whether the plan for the next stage still makes sense. This is the most important moment in adaptive execution — don't reduce it to a checkbox exercise.
 
 ### Phase 7: Create Task Directory and Write Plan
 
@@ -201,10 +217,11 @@ Using the task directory found in Setup, create `{tasks_dir}/{kebab-case-name}/`
 1. Create the directory
 2. Write `{name}_plan.md` (the plan — see template below)
 3. Write `{name}_notepad.md` (header only: Status: NOT_STARTED, Started/Updated timestamps)
-4. Write `{name}_decision_tree.md` (header only: "# {Task Name} — Decision Tree")
-5. Write `{name}_user_messages.md` (capture the original user goal from $ARGUMENTS)
-6. Create `results/` subdirectory
-7. Add a row to `task_index.md`: task name, IN_PROGRESS, start time PST, one-line description
+4. Write `{name}_findings.md` (header only: Observations + Findings sections)
+5. Write `{name}_decision_tree.md` (header only: "# {Task Name} — Decision Tree")
+6. Write `{name}_user_messages.md` (capture the original user goal from $ARGUMENTS)
+7. Create `results/` subdirectory
+8. Add a row to `task_index.md`: task name, IN_PROGRESS, start time PST, one-line description
 
 Plan template:
 
@@ -228,11 +245,18 @@ Plan template:
 - [What must exist before starting]
 - Commands to verify they exist
 
+## Stopping Criteria
+[When is this experiment done? Semantic conditions, not step counts.]
+- [Condition 1: e.g., "trait vectors validated with >0.7 AUC"]
+- [Condition 2: e.g., "steering shows causal effect in expected direction"]
+
 ## Stage 1: [Name] ([N] steps)
+_Full detail — exact commands, outputs, verification._
 
 ### 1.1: [Name]
 **Purpose**: [Why this step]
 **Depends on**: [none / step X.Y verified]
+**Predicts**: [What result we expect — so run-experiment can judge if results match]
 
 **Read first**:
 - `path/to/script.py` - check args
@@ -260,12 +284,28 @@ ls path/to/output/ | wc -l  # Should be N
 - [ ] Results consistent with hypothesis
 - [ ] No error patterns carried forward
 - [ ] Notepad updated with all results
+- [ ] Stage judgment complete (what did we learn? any leads to investigate?)
 
-## Stage 2: [Name] ([N] steps)
-...
+## Stage 2: [Name]
+_Lighter — key steps and stopping criteria. Run-experiment decomposes at runtime._
 
-## Expected Results
-[Table of expected vs what would indicate success/failure]
+**Purpose**: [What this stage accomplishes]
+**Depends on**: [What from Stage 1 this needs]
+**Predicts**: [What we expect to find based on hypothesis]
+
+**Key steps**:
+1. [What needs to happen — not exact commands]
+2. [...]
+
+**Stopping criteria**: [How to know this stage is done]
+
+**If results differ from predictions**: [What to investigate, what to adjust]
+
+### Checkpoint: After Stage 2
+- [ ] Stage purpose achieved
+- [ ] Stopping criteria met
+- [ ] Results consistent with or update hypothesis
+- [ ] Stage judgment complete
 
 ## If Stuck
 - [Common error] → [Fix]
@@ -309,6 +349,8 @@ Use AskUserQuestion with options:
 - **Question your questions** - If you're not sure what to ask, ask what to ask.
 - Always read script argparse before including commands
 - Include verification steps for each major step
-- The plan should be detailed enough for /r:run-experiment to execute
+- **Stage 1 must be detailed enough for run-experiment to execute without judgment calls.** Later stages can be lighter — run-experiment will decompose them at runtime with context from earlier results.
+- **Include predictions per step/stage** — run-experiment compares actual results against these to decide whether to adjust.
+- **Include stopping criteria** — semantic conditions, not step counts.
 - Critic is MANDATORY at Phase 5 and Phase 7.5 - do not skip
 - Phase 7.5 can loop back - phases are not strictly linear
