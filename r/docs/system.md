@@ -45,14 +45,17 @@ Repo-agnostic. Counters known LLM failure modes through structural enforcement, 
 ## Task Lifecycle
 
 ```
-DEFINE ──→ PLAN ──→ EXECUTE ──→ VERIFY ──→ COMPLETE?
+DEFINE ──→ PLAN ──→ EXECUTE ──→ VERIFY ──→ RECORD ──→ next step
   │          │         │           │          │
-  │          │         │           ├─ FAIL → FAILURE_DOC → back to EXECUTE or PLAN
-  │          │         │           └─ PASS → next step
-  │          │         └─ side-thoughts (2-3 background agents)
+  │          │         │           ├─ FAIL → decision_tree PRUNE → back to EXECUTE or PLAN
+  │          │         │           └─ PASS → notepad + decision_tree (if branch point)
+  │          │         │
+  │          │         ├─ every 5 steps: PROGRESS CHECK (reflector)
+  │          │         └─ at stage boundary: STAGE JUDGMENT (reflect → investigate → assess)
+  │          │
   │          └─ critic review (mandatory)
   └─ investigator exploration
-                                           COMPLETE? → Ralph check → DONE or ITERATE
+                                           COMPLETE? → Ralph check → findings.md → DONE or ITERATE
 ```
 
 ### Phase 1: DEFINE
@@ -87,19 +90,20 @@ DEFINE ──→ PLAN ──→ EXECUTE ──→ VERIFY ──→ COMPLETE?
 ### Phase 3: EXECUTE
 
 **Input:** Finalized plan
-**Output:** Step results + notepad entries
+**Output:** Step results + notepad entries + decision tree entries + findings observations
 
 For each step:
 1. Re-read `{name}_plan.md` (re-anchor — addresses F6)
 2. Re-read `{name}_notepad.md` (catch up on progress)
 3. Check `{name}_decision_tree.md` for relevant pruned approaches (addresses F11)
 4. Execute step
-5. Record result in notepad with PST timestamp
-6. Spawn 2-3 side-thought agents [background, non-blocking]:
-   - "Is there a simpler approach to what we just did?"
-   - "What could go wrong downstream?"
-   - "What related thing should we check?"
-7. Proceed to VERIFY
+5. Proceed to VERIFY
+6. **RECORD (mandatory gate):** Write notepad entry + decision tree entry (if branch point) + update step counter. Cannot proceed to next step until this is done.
+7. If something surprising → write observation to `{name}_findings.md`
+
+**Every 5 steps:** Spawn reflector to check progress AND file infrastructure compliance. If stuck → prune approach in decision tree, try something different. If files not maintained → catch up before continuing.
+
+**At stage boundaries:** Stage judgment — reflect on results → investigate top 2-3 leads → assess whether next stage's plan still makes sense.
 
 ### Phase 4: VERIFY
 
@@ -166,16 +170,13 @@ WHEN all steps done OR agent claims "done":
 ### Task Registry
 
 ```
-dev/autonomous-workflow/
-├── system.md                        # Framework spec
-├── user_inputs.md                   # User messages about the system itself
-
-dev/tasks/
-├── index.md                         # Cross-task registry
+{task_dir}/
+├── index.md                         # Cross-task registry (if maintained)
 └── {kebab-case-name}/               # Per-task directory
-        ├── {name}_plan.md           # Goal, criteria, steps, approach
-        ├── {name}_notepad.md        # Timestamped progress (survives compaction)
-        ├── {name}_decision_tree.md  # Branch/prune log with evidence
+        ├── {name}_plan.md           # Goal, hypothesis, criteria, stages, steps
+        ├── {name}_notepad.md        # Timestamped execution log (append-only, survives compaction)
+        ├── {name}_findings.md       # Observations (during run) + reconciled findings (at completion)
+        ├── {name}_decision_tree.md  # Branch points (D{N}) + pruned approaches (DO NOT RETRY UNLESS)
         ├── {name}_user_messages.md  # Verbatim user inputs about THIS task
         └── results/                 # Output artifacts (code, data, reports)
 ```
@@ -218,9 +219,10 @@ dev/tasks/
 
 | File | Purpose | Access pattern |
 |---|---|---|
-| `{name}_plan.md` | Goal, success criteria, ordered steps, approach | Read at start of every step (re-anchor) |
-| `{name}_notepad.md` | Append-only timestamped progress, evidence, failures | Read after compaction; written continuously |
-| `{name}_decision_tree.md` | Branch points, options, pruned approaches + reasons | Read before attempting anything (check prior failures) |
+| `{name}_plan.md` | Goal, hypothesis, success criteria, stages, steps | Read at start of every step (re-anchor) |
+| `{name}_notepad.md` | Append-only timestamped execution log, evidence, failures | Read after compaction; written every step (mandatory gate) |
+| `{name}_findings.md` | Observations (during run) + reconciled findings (at completion) | Written on surprises + at end; survives partial runs |
+| `{name}_decision_tree.md` | Branch points (D{N}), pruned approaches + DO NOT RETRY UNLESS | Read before attempting anything; written at branch points and failures |
 | `{name}_user_messages.md` | Verbatim user inputs + outcome annotations | Read during planning; written on user input |
 | `results/` | Output artifacts: code patches, data files, reports | Written during execution; referenced from notepad |
 
@@ -235,23 +237,45 @@ dev/tasks/
 
 ### Notepad Format
 
-Header: Status, Started, Last updated (PST timestamps). Then append-only entries.
+Header: Status, Started, Last updated, Steps completed (PST timestamps). Then append-only entries.
 
 Entry format: `### [YYYY-MM-DD HH:MM PST] Step N: {name} — STATUS`
 
 | Entry type | Required fields |
 |---|---|
-| STARTED | Action |
-| RESULT | Output, Evidence, Issues |
 | VERIFIED | Method, Evidence, Clean |
-| SIDE-THOUGHT | Agent found, Action (INCORPORATED / NOTED / DISMISSED: reason) |
 | FAILURE | Attempted, Error, Root cause, Rules out, → decision_tree ref |
+| STAGE_JUDGMENT | What revealed, Hypothesis status, Questions raised, Leads investigated |
+| PROGRESS_CHECK | Steps since last check, Progress assessment, Stuck? (yes/no + what to change) |
+
+**Writing the notepad entry is a mandatory gate** — cannot execute step N+1 until step N's entry is written and the "Steps completed" counter is incremented.
 
 ### Decision Tree Format
 
-Each decision: context, options table (with critic score if reviewed), chosen option + reason, outcome (filled after).
+Each decision numbered D{N}:
+```
+## D{N}: {decision context}
+| Option | Description |
+|---|---|
+| A | {approach 1} |
+| B | {approach 2} |
+**Chosen:** {which and why}
+**Outcome:** {SUCCEEDED / FAILED — filled after}
+```
 
-Pruned options: status (NOT_ATTEMPTED / ATTEMPTED_AND_FAILED), reason (specific evidence), DO NOT RETRY UNLESS condition.
+Pruned approaches:
+```
+### D{N}-PRUNED: {approach name}
+- Status: NOT_ATTEMPTED | ATTEMPTED_AND_FAILED
+- Reason: {specific evidence}
+- DO NOT RETRY UNLESS: {condition that would make it worth trying again}
+```
+
+### Findings Format
+
+Two sections, written at different times:
+- **Observations** (append during run) — brief notes when something surprising happens
+- **Findings** (written at completion) — reconciled claims with evidence, CONFIRMED / REFUTED / INCONCLUSIVE status
 
 ### User Messages Format
 
@@ -263,18 +287,17 @@ Each entry: `### [YYYY-MM-DD HH:MM PST] Input` followed by verbatim message, the
 
 | Agent | Role | When | Addresses |
 |---|---|---|---|
-| Investigator (×2-3) | Explore codebase/context, different angles | Phase 1, Phase 3 unknowns | F6, F12 |
-| Critic | Challenge plans and assumptions | Phase 2 (mandatory), Phase 5 | F1, F2, F8, F9 |
-| Reflector | Synthesize findings, identify gaps | After investigation waves, after failures | F3, F10 |
+| Investigator (×2-3) | Explore codebase/context, different angles | Phase 1, stage judgment leads, progress check unknowns | F6, F12 |
+| Critic | Challenge plans and assumptions | Phase 2 (mandatory), Phase 5, stage judgment | F1, F2, F8, F9 |
+| Reflector | Synthesize findings, identify gaps, check progress | After investigation waves, every 5 steps (progress check), stage judgment | F3, F6, F10 |
 | Analyst | Parse outputs, extract metrics, compare | Phase 4 complex outputs | F1, F2 |
 | Verifier | Post-execution code verification — enumerates all possible bugs, reads code, checks each | After execution, before COMPLETE (mandatory) | F1, F12 |
-| Side-Thought (×2-3) | Divergent exploration of tangential ideas | Phase 3, after each major step | P4, P6 |
 
 **Spawning rules:**
 - Investigator: always parallel, different angles, no overlap
 - Critic: always after plans — never skip [mandatory]
+- Reflector: at stage boundaries (mandatory) + every 5 steps (progress check + file compliance)
 - Verifier: always after execution, before marking COMPLETE — never skip [mandatory]. Catches logic bugs tsc misses.
-- Side-thoughts: background (non-blocking); results incorporated when ready
 - OK to block-wait on subagent output when it's a dependency
 
 ---
@@ -366,41 +389,26 @@ Wave 7: RECOMMEND (1 reflector — final output)
 
 ## Integration
 
+### How This Relates to r Plugin Commands
+
+This system.md IS the r plugin's framework spec. The commands implement it:
+- `/r:plan-experiment` + `/r:plan-task` → Phase 1-2 (DEFINE + PLAN)
+- `/r:run-experiment` + `/r:run-task` → Phase 3-5 (EXECUTE + VERIFY + COMPLETE)
+- `/r:swarm` → investigation waves (used during planning and stage judgment)
+- All agent roles (investigator, critic, reflector, analyst, verifier) → used throughout
+
+### With Ralph Wiggum Loop
+
+The `ralph-loop` plugin provides an external bash iterator (outer loop). This system provides the internal execution structure (inner loop). They stack:
+- Ralph Wiggum Loop: keeps the agent re-running with fresh context until `<promise>DONE</promise>`
+- This system: ensures each run uses the file infrastructure, checks progress, and doesn't claim completion without evidence
+
 ### CLAUDE.md Reference
 
-Add to any project's CLAUDE.md:
+Add to any project's CLAUDE.md to enable:
 
 ```markdown
-@dev/autonomous-workflow/system.md
-
 ## Autonomous Tasks
-Follow the Autonomous Workflow System for multi-step work.
-Task directories: dev/tasks/
+Use `/r:plan-experiment` + `/r:run-experiment` for multi-step research.
+Use `/r:plan-task` + `/r:run-task` for code tasks.
 ```
-
-### With Existing r Plugin
-
-The system extends (not replaces) the r plugin:
-- `/r:plan-experiment` → maps to Phase 1-2 (DEFINE + PLAN)
-- `/r:run-experiment` → maps to Phase 3-4 (EXECUTE + VERIFY)
-- `/r:swarm` → use during Phase 1 investigation
-- Critic/Reflector agents → used as-is throughout
-
-**What this system adds over r plugin:**
-- Ralph completion protocol (Phase 5)
-- Decision tree with pruning documentation
-- User message capture
-- Side-thought spawning
-- Explicit failure mode countermeasures
-- Formalized verification evidence requirements
-
----
-
-## Open Questions (v0.2)
-
-- [ ] Ralph loop implementation: custom skill/command? Or prompt pattern in plan.md?
-- [ ] Cross-model verification: how to route to GPT/Gemini when available?
-- [ ] Git coordination: auto-commit after each verified step?
-- [ ] How to handle tasks that span multiple sessions / compaction events?
-- [ ] Integration with `/loop` command for interval-based monitoring?
-- [ ] Wave 4 (DEEPEN) skip conditions: when is it safe to go straight from critic to convergence?
