@@ -208,15 +208,17 @@ Record failures in notepad AND decision tree:
 
 **Every 5 completed steps, STOP and run this check.** This catches the "stuck doing useless work under false pretenses" failure mode — where the agent keeps executing steps that look productive but aren't advancing the goal.
 
-Spawn a **background reflector** with this prompt:
+Spawn a **background check-in agent** (`r:check-in`) with:
 
-> "Read the notepad's last 10 entries and the plan's hypothesis/success criteria. Answer:
-> 1. Is the agent making real progress toward the success criteria, or repeating similar actions?
-> 2. What concretely changed in the last 5 steps? (specific outputs, not 'made progress')
-> 3. Are the file infrastructure requirements being followed? (timestamped notepad entries, decision tree populated at branch points, findings.md updated on surprises)
-> 4. If stuck or spinning: what should change?"
+> "Check progress on this experiment.
+> - Notepad: {path to notepad}
+> - Plan: {path to plan}  
+> - Decision tree: {path to decision tree}
+> - Findings: {path to findings}"
 
-**If the reflector says stuck or spinning:**
+The check-in agent has fresh context, can spawn its own investigators and critics, and returns an assessment: GOOD / SLOW / SPINNING / OFF-TRACK with a concrete recommendation.
+
+**If the check-in agent says SPINNING or OFF-TRACK:**
 - STOP execution
 - Re-read the plan's hypothesis and success criteria
 - Re-read the "If Stuck" section
