@@ -42,7 +42,20 @@ Also read:
 - **Notepad** (`*_notepad.md`) — catch up on progress if resuming
 - **Decision tree** (`*_decision_tree.md`) — check for pruned approaches
 
-### 4. Initialize Files
+### 4. Initialize File Structure
+
+**All files below are MANDATORY. Create any that don't exist. These are not optional documentation — they are the execution infrastructure.**
+
+The task directory should contain:
+```
+{task_dir}/
+├── {name}_plan.md           # Already exists (from plan-experiment)
+├── {name}_notepad.md        # Timestamped execution log (append-only)
+├── {name}_findings.md       # Observations + reconciled findings
+├── {name}_decision_tree.md  # Branch points, pruned approaches, DO NOT RETRY conditions
+├── {name}_user_messages.md  # Verbatim user inputs about this task
+└── results/                 # Output artifacts
+```
 
 **Notepad** (if new):
 ```markdown
@@ -51,6 +64,7 @@ Also read:
 ## Status: IN_PROGRESS
 ## Started: {YYYY-MM-DD HH:MM PST}
 ## Last updated: {YYYY-MM-DD HH:MM PST}
+## Steps completed: 0
 
 ---
 ```
@@ -65,6 +79,23 @@ _Append here during the run when something notable happens._
 ## Findings
 _Written at completion — reconciled claims with evidence._
 ```
+
+**Decision Tree** (if new):
+```markdown
+# {Task Name} — Decision Tree
+
+_Record branch points (choices between approaches) and pruned approaches (failed or rejected, with DO NOT RETRY UNLESS conditions)._
+```
+
+**User Messages** (if new — capture the original goal):
+```markdown
+# {Task Name} — User Messages
+
+### [{YYYY-MM-DD HH:MM PST}] Original Goal
+{verbatim from plan or user input}
+```
+
+Also update **task_index.md** if it exists.
 
 ### 5. Create Task List
 
@@ -129,9 +160,29 @@ Record in notepad:
 - Clean: {yes | no — details if no}
 ```
 
-### 6. Decision Point
+### 6. Record (MANDATORY — before proceeding to next step)
 
-**Verified and clean** → mark task complete, continue.
+**You cannot execute step N+1 until you have completed these writes for step N:**
+
+a) **Notepad entry** with timestamp, method, evidence, clean status (template in step 5 above)
+b) **Decision tree entry** if you made a choice between approaches or rejected an approach. Format:
+```
+## D{N}: {decision context}
+| Option | Description |
+|---|---|
+| A | {approach 1} |
+| B | {approach 2} |
+**Chosen:** {which and why}
+**Outcome:** {filled after — SUCCEEDED / FAILED}
+```
+c) **Update "Steps completed" counter** in notepad header
+d) **Update "Last updated" timestamp** in notepad header
+
+If no decision was made (straightforward step with one obvious approach), skip (b) but still do (a), (c), (d).
+
+### 7. Decision Point
+
+**Verified and clean** → continue to next step.
 
 **Something wrong:**
 - Check plan's "If wrong" field
@@ -143,7 +194,39 @@ Record in notepad:
 - Write an observation to findings.md
 - Continue — the stage judgment will handle deeper investigation
 
-Record failures in notepad with: what was tried, error details, root cause analysis, what this rules out, decision tree reference.
+Record failures in notepad AND decision tree:
+```
+### D{N}-PRUNED: {approach name}
+- Status: ATTEMPTED_AND_FAILED
+- Reason: {specific evidence — error message, wrong output, etc.}
+- DO NOT RETRY UNLESS: {what would need to change}
+```
+
+---
+
+## Progress Checkpoint (Every 5 Steps)
+
+**Every 5 completed steps, STOP and run this check.** This catches the "stuck doing useless work under false pretenses" failure mode — where the agent keeps executing steps that look productive but aren't advancing the goal.
+
+Spawn a **background reflector** with this prompt:
+
+> "Read the notepad's last 10 entries and the plan's hypothesis/success criteria. Answer:
+> 1. Is the agent making real progress toward the success criteria, or repeating similar actions?
+> 2. What concretely changed in the last 5 steps? (specific outputs, not 'made progress')
+> 3. Are the file infrastructure requirements being followed? (timestamped notepad entries, decision tree populated at branch points, findings.md updated on surprises)
+> 4. If stuck or spinning: what should change?"
+
+**If the reflector says stuck or spinning:**
+- STOP execution
+- Re-read the plan's hypothesis and success criteria
+- Re-read the "If Stuck" section
+- Write to notepad: what you were doing, why it wasn't working, what you'll do differently
+- Write to decision tree: prune the approach that wasn't working
+- Only then continue with a different approach
+
+**If the reflector flags missing file infrastructure:**
+- Catch up on all missing writes before continuing
+- This is non-negotiable — the files are how progress survives context compaction
 
 ---
 
