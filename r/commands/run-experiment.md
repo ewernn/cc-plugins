@@ -38,6 +38,15 @@ Read the plan file. Parse:
 - **"If Stuck"** section
 - **Stopping criteria** — what "done" looks like (semantic, not just step count)
 
+**P8 check (due diligence):** Before executing, verify the plan contains:
+- [ ] A hypothesis (what we expect to find and why)
+- [ ] Per-step or per-stage predictions (expected results to compare against)
+- [ ] At least one alternative approach that was considered and rejected (with reason)
+- [ ] Stopping criteria (semantic conditions, not just step counts)
+- [ ] Time/compute budget estimate
+
+If any are missing: the plan is incomplete. Stop and fill them in (spawn investigator + critic to help if needed) before executing. An experiment without predictions is an experiment without a hypothesis — you have no way to recognize whether results are expected or surprising.
+
 Also read:
 - **Notepad** (`*_notepad.md`) — catch up on progress if resuming
 - **Decision tree** (`*_decision_tree.md`) — check for pruned approaches

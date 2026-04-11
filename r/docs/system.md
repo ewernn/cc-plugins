@@ -20,6 +20,7 @@ Repo-agnostic. Counters known LLM failure modes through structural enforcement, 
 | P5 | Never trust completion claims | Ralph protocol: loop until success criteria met with evidence. [F4] |
 | P6 | Maximize token utilization | Spawn subagents freely. Side-thoughts are cheap. Idle subscriptions = waste. |
 | P7 | Show work or say "I don't know" | No "this becomes", "for consistency", or unsupported claims. [F9, R15] |
+| P8 | Predict before executing | Every experiment states: expected result + why, time/compute budget, alternative considered and rejected, what would invalidate the hypothesis. No predictions = no hypothesis. |
 
 ---
 

@@ -349,8 +349,7 @@ Use AskUserQuestion with options:
 - **Question your questions** - If you're not sure what to ask, ask what to ask.
 - Always read script argparse before including commands
 - Include verification steps for each major step
+- **P8: Predict before executing.** Every plan MUST include: hypothesis (what we expect and why), per-step/stage predictions, at least one alternative approach considered and rejected with reason, semantic stopping criteria, time/compute budget. Run-experiment will reject incomplete plans.
 - **Stage 1 must be detailed enough for run-experiment to execute without judgment calls.** Later stages can be lighter — run-experiment will decompose them at runtime with context from earlier results.
-- **Include predictions per step/stage** — run-experiment compares actual results against these to decide whether to adjust.
-- **Include stopping criteria** — semantic conditions, not step counts.
 - Critic is MANDATORY at Phase 5 and Phase 7.5 - do not skip
 - Phase 7.5 can loop back - phases are not strictly linear
