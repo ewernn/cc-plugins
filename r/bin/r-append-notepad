@@ -1,0 +1,95 @@
+#!/bin/bash
+# r-append-notepad — append a formatted notepad entry and increment the step counter
+#
+# Usage:
+#   r-append-notepad <notepad_path> <step_num> <step_name> <status> <method> <evidence> <clean>
+#
+# Arguments:
+#   notepad_path   Path to the _notepad.md file
+#   step_num       Step number (integer)
+#   step_name      Short name of the step
+#   status         Entry type: VERIFIED | FAILURE | STAGE_JUDGMENT | PROGRESS_CHECK
+#   method         How it was verified / what was tried
+#   evidence       Specific output, metric, diff, or error
+#   clean          yes | no | "no — {details}"
+#
+# Atomically:
+#   1. Appends a timestamped entry to the notepad
+#   2. Increments "Steps completed" counter in the header
+#   3. Updates "Last updated" timestamp in the header
+#
+# Exit codes:
+#   0 — success
+#   1 — usage error or notepad not found
+#   2 — notepad header malformed (missing Steps completed or Last updated)
+
+set -euo pipefail
+
+if [ $# -ne 7 ]; then
+  echo "Usage: r-append-notepad <notepad_path> <step_num> <step_name> <status> <method> <evidence> <clean>" >&2
+  echo "" >&2
+  echo "Status values: VERIFIED | FAILURE | STAGE_JUDGMENT | PROGRESS_CHECK" >&2
+  exit 1
+fi
+
+NOTEPAD="$1"
+STEP_NUM="$2"
+STEP_NAME="$3"
+STATUS="$4"
+METHOD="$5"
+EVIDENCE="$6"
+CLEAN="$7"
+
+if [ ! -f "$NOTEPAD" ]; then
+  echo "Error: notepad not found: $NOTEPAD" >&2
+  exit 1
+fi
+
+case "$STATUS" in
+  VERIFIED|FAILURE|STAGE_JUDGMENT|PROGRESS_CHECK) ;;
+  *)
+    echo "Error: invalid status '$STATUS'" >&2
+    echo "Must be one of: VERIFIED | FAILURE | STAGE_JUDGMENT | PROGRESS_CHECK" >&2
+    exit 1
+    ;;
+esac
+
+TS="$(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M PST')"
+
+# Verify header has required fields
+if ! grep -q "^## Steps completed:" "$NOTEPAD"; then
+  echo "Error: notepad missing 'Steps completed' header field: $NOTEPAD" >&2
+  echo "Run r-init-task-files to regenerate the notepad structure." >&2
+  exit 2
+fi
+if ! grep -q "^## Last updated:" "$NOTEPAD"; then
+  echo "Error: notepad missing 'Last updated' header field: $NOTEPAD" >&2
+  exit 2
+fi
+
+# Get current step count and increment
+CURRENT=$(grep "^## Steps completed:" "$NOTEPAD" | head -1 | sed -E 's/^## Steps completed:[[:space:]]*//' | tr -d '[:space:]')
+if ! [[ "$CURRENT" =~ ^[0-9]+$ ]]; then
+  echo "Error: 'Steps completed' value is not an integer: '$CURRENT'" >&2
+  exit 2
+fi
+NEW_COUNT=$((CURRENT + 1))
+
+# Update header in place (portable sed — works on macOS and Linux)
+TMPFILE=$(mktemp)
+sed -E "s|^## Last updated: .*|## Last updated: ${TS}|" "$NOTEPAD" > "$TMPFILE"
+sed -E "s|^## Steps completed: [0-9]+|## Steps completed: ${NEW_COUNT}|" "$TMPFILE" > "$NOTEPAD"
+rm -f "$TMPFILE"
+
+# Append the entry
+cat >> "$NOTEPAD" <<EOF
+
+### [${TS}] Step ${STEP_NUM}: ${STEP_NAME} — ${STATUS}
+- Method: ${METHOD}
+- Evidence: ${EVIDENCE}
+- Clean: ${CLEAN}
+EOF
+
+echo "Appended ${STATUS} entry for step ${STEP_NUM} (${STEP_NAME})"
+echo "Steps completed: ${CURRENT} -> ${NEW_COUNT}"
+exit 0

@@ -1,0 +1,140 @@
+#!/bin/bash
+# r-check-notepad-format — validate notepad structure and consistency
+#
+# Usage: r-check-notepad-format <notepad_path>
+#
+# Checks:
+#   1. Header has all required fields (Status, Started, Last updated, Steps completed)
+#   2. Steps completed counter is an integer
+#   3. Number of VERIFIED/FAILURE entries matches or is close to Steps completed
+#   4. Entries have required fields (Method, Evidence, Clean for VERIFIED)
+#
+# Exit codes:
+#   0 — notepad is valid
+#   1 — usage error or notepad not found
+#   2 — format violations (stderr lists them)
+
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "Usage: r-check-notepad-format <notepad_path>" >&2
+  exit 1
+fi
+
+NOTEPAD="$1"
+
+if [ ! -f "$NOTEPAD" ]; then
+  echo "Error: notepad not found: $NOTEPAD" >&2
+  exit 1
+fi
+
+ERRORS=()
+WARNINGS=()
+
+# Header checks
+for field in "Status" "Started" "Last updated" "Steps completed"; do
+  if ! grep -q "^## ${field}:" "$NOTEPAD"; then
+    ERRORS+=("Header missing field: ## ${field}:")
+  fi
+done
+
+# Steps completed is an integer
+if grep -q "^## Steps completed:" "$NOTEPAD"; then
+  COUNT=$(grep "^## Steps completed:" "$NOTEPAD" | head -1 | sed -E 's/^## Steps completed:[[:space:]]*//' | tr -d '[:space:]')
+  if ! [[ "$COUNT" =~ ^[0-9]+$ ]]; then
+    ERRORS+=("Steps completed value is not an integer: '$COUNT'")
+  fi
+fi
+
+# Count entries and compare to counter
+VERIFIED_COUNT=$(grep -c "^### \[.*\] Step .* — VERIFIED" "$NOTEPAD" || true)
+FAILURE_COUNT=$(grep -c "^### \[.*\] Step .* — FAILURE" "$NOTEPAD" || true)
+ENTRY_TOTAL=$((VERIFIED_COUNT + FAILURE_COUNT))
+
+if [[ "${COUNT:-}" =~ ^[0-9]+$ ]]; then
+  if [ "$ENTRY_TOTAL" -lt "$COUNT" ]; then
+    WARNINGS+=("Steps completed ($COUNT) exceeds VERIFIED+FAILURE entry count ($ENTRY_TOTAL)")
+  fi
+fi
+
+# Each VERIFIED entry should have Method, Evidence, Clean fields
+# Pull out VERIFIED entries and check each
+awk '
+  /^### \[.*\] Step .* — VERIFIED/ { in_entry=1; has_method=0; has_evidence=0; has_clean=0; header=$0; next }
+  in_entry && /^### / {
+    if (!has_method)   print "MISSING_METHOD:" header
+    if (!has_evidence) print "MISSING_EVIDENCE:" header
+    if (!has_clean)    print "MISSING_CLEAN:" header
+    in_entry=0
+  }
+  in_entry && /^- Method:/    { has_method=1 }
+  in_entry && /^- Evidence:/  { has_evidence=1 }
+  in_entry && /^- Clean:/     { has_clean=1 }
+  END {
+    if (in_entry) {
+      if (!has_method)   print "MISSING_METHOD:" header
+      if (!has_evidence) print "MISSING_EVIDENCE:" header
+      if (!has_clean)    print "MISSING_CLEAN:" header
+    }
+  }
+' "$NOTEPAD" | while IFS=: read -r issue header_line; do
+  case "$issue" in
+    MISSING_METHOD)   ERRORS+=("Entry missing Method field: $header_line") ;;
+    MISSING_EVIDENCE) ERRORS+=("Entry missing Evidence field: $header_line") ;;
+    MISSING_CLEAN)    ERRORS+=("Entry missing Clean field: $header_line") ;;
+  esac
+done
+
+# The subshell loses array modifications — re-check by running awk directly
+AWK_OUTPUT=$(awk '
+  /^### \[.*\] Step .* — VERIFIED/ { in_entry=1; has_method=0; has_evidence=0; has_clean=0; header=$0; next }
+  in_entry && /^### / {
+    if (!has_method)   print "MISSING_METHOD|" header
+    if (!has_evidence) print "MISSING_EVIDENCE|" header
+    if (!has_clean)    print "MISSING_CLEAN|" header
+    in_entry=0
+  }
+  in_entry && /^- Method:/    { has_method=1 }
+  in_entry && /^- Evidence:/  { has_evidence=1 }
+  in_entry && /^- Clean:/     { has_clean=1 }
+  END {
+    if (in_entry) {
+      if (!has_method)   print "MISSING_METHOD|" header
+      if (!has_evidence) print "MISSING_EVIDENCE|" header
+      if (!has_clean)    print "MISSING_CLEAN|" header
+    }
+  }
+' "$NOTEPAD")
+
+if [ -n "$AWK_OUTPUT" ]; then
+  while IFS='|' read -r issue header_line; do
+    [ -z "$issue" ] && continue
+    case "$issue" in
+      MISSING_METHOD)   ERRORS+=("Entry missing Method field: ${header_line}") ;;
+      MISSING_EVIDENCE) ERRORS+=("Entry missing Evidence field: ${header_line}") ;;
+      MISSING_CLEAN)    ERRORS+=("Entry missing Clean field: ${header_line}") ;;
+    esac
+  done <<< "$AWK_OUTPUT"
+fi
+
+# Report
+if [ ${#ERRORS[@]} -eq 0 ] && [ ${#WARNINGS[@]} -eq 0 ]; then
+  echo "Notepad format OK: $NOTEPAD"
+  echo "  Verified entries: $VERIFIED_COUNT"
+  echo "  Failure entries:  $FAILURE_COUNT"
+  echo "  Steps completed:  ${COUNT:-?}"
+  exit 0
+fi
+
+if [ ${#WARNINGS[@]} -gt 0 ]; then
+  echo "Warnings:" >&2
+  for w in "${WARNINGS[@]}"; do echo "  - $w" >&2; done
+fi
+
+if [ ${#ERRORS[@]} -gt 0 ]; then
+  echo "Notepad format VIOLATIONS for $NOTEPAD" >&2
+  for e in "${ERRORS[@]}"; do echo "  - $e" >&2; done
+  exit 2
+fi
+
+exit 0

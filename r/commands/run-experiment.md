@@ -9,16 +9,49 @@ Target: $ARGUMENTS
 
 If no argument provided, look for a plan file (`*_plan.md` or `PLAN.md`) in the current directory.
 
+---
+
+## Core Rules (these override your instinct to skip documentation)
+
+**P1: Externalize all state.** Context compacts and drifts. Files survive.
+**P2: Verify structurally.** "Verified" means specific evidence, never a claim.
+**P4: Diverge then converge.** Always consider alternatives before committing.
+**P5: Never trust completion claims.** Loop until success criteria met with evidence.
+**P6: Spawn subagents liberally.** Fresh context is cheap, stale parent context is expensive.
+**P8: Predict before executing.** No hypothesis + budget + alternative = no experiment.
+
+**Key failure modes you WILL hit if you're not careful:**
+- **F1**: claiming "verified" without checking
+- **F3**: skipping hard parts for easier ones
+- **F4**: premature completion claims
+- **F6**: losing direction on long tasks
+- **F11**: re-attempting previously failed approaches
+
+The file infrastructure below is the countermeasure to these. It is not optional.
+
+---
+
+## File Structure (MANDATORY)
+
+Every task directory contains these 5 files plus `results/`:
+
+```
+{task_dir}/{name}/
+├── {name}_plan.md           # From plan-experiment (already exists)
+├── {name}_notepad.md        # Timestamped execution log (append every step)
+├── {name}_findings.md       # Observations + reconciled findings
+├── {name}_decision_tree.md  # Branch points (D{N}) + pruned approaches
+├── {name}_user_messages.md  # Verbatim user inputs
+└── results/                 # Output artifacts
+```
+
+**Each file has a purpose. None are optional.**
+
+---
+
 ## Startup
 
-### 1. Load System Spec
-
-Read `${CLAUDE_PLUGIN_ROOT}/docs/system.md`. Focus on:
-- Failure modes F1-F12 (especially F1: fake verification, F3: skipping hard parts, F4: premature completion)
-- Evidence-based verification (not claims)
-- Anti-patterns table
-
-### 2. Check Environment
+### 1. Check Environment
 
 ```bash
 if command -v nvidia-smi &> /dev/null; then
@@ -28,87 +61,49 @@ else
 fi
 ```
 
-### 3. Load Plan
+### 2. Load Plan
 
-Read the plan file. Parse:
-- **Hypothesis** — the scientific prediction
-- **Stages** and steps within each stage
-- **Checkpoints** between stages
-- **Dependencies**, expected outputs, verification criteria, "If wrong" fields
-- **"If Stuck"** section
-- **Stopping criteria** — what "done" looks like (semantic, not just step count)
+Read the plan file. Identify:
+- Task directory and task name
+- Hypothesis, stages, steps, checkpoints
+- Dependencies, verification criteria, "If wrong" fields
+- Stopping criteria, "If Stuck" section
 
-**P8 check (due diligence):** Before executing, verify the plan contains:
-- [ ] A hypothesis (what we expect to find and why)
-- [ ] Per-step or per-stage predictions (expected results to compare against)
-- [ ] At least one alternative approach that was considered and rejected (with reason)
-- [ ] Stopping criteria (semantic conditions, not just step counts)
-- [ ] Time/compute budget estimate
+### 3. P8 Compliance Check (BLOCKING)
 
-If any are missing: the plan is incomplete. Stop and fill them in (spawn investigator + critic to help if needed) before executing. An experiment without predictions is an experiment without a hypothesis — you have no way to recognize whether results are expected or surprising.
+Run the deterministic P8 check on the plan:
 
-Also read:
-- **Notepad** (`*_notepad.md`) — catch up on progress if resuming
-- **Decision tree** (`*_decision_tree.md`) — check for pruned approaches
-
-### 4. Initialize File Structure
-
-**All files below are MANDATORY. Create any that don't exist. These are not optional documentation — they are the execution infrastructure.**
-
-The task directory should contain:
-```
-{task_dir}/
-├── {name}_plan.md           # Already exists (from plan-experiment)
-├── {name}_notepad.md        # Timestamped execution log (append-only)
-├── {name}_findings.md       # Observations + reconciled findings
-├── {name}_decision_tree.md  # Branch points, pruned approaches, DO NOT RETRY conditions
-├── {name}_user_messages.md  # Verbatim user inputs about this task
-└── results/                 # Output artifacts
+```bash
+r-check-plan-p8 {path to plan}
 ```
 
-**Notepad** (if new):
-```markdown
-# {Task Name} — Notepad
+**If this exits non-zero**, the plan is missing required sections (hypothesis, predictions, alternatives, stopping criteria, or budget). You cannot execute an incomplete plan. Do one of:
+- Stop and report to user with the specific missing sections
+- If running autonomously (ralph-loop / overnight), spawn investigator + critic to propose the missing sections, update the plan, re-run `r-check-plan-p8`, then proceed
 
-## Status: IN_PROGRESS
-## Started: {YYYY-MM-DD HH:MM PST}
-## Last updated: {YYYY-MM-DD HH:MM PST}
-## Steps completed: 0
+An experiment without predictions is an experiment without a hypothesis. Do not skip this.
 
----
+### 4. Initialize Task Files (DETERMINISTIC)
+
+Run the initialization script. It's idempotent — safe to run every time:
+
+```bash
+r-init-task-files {task_dir} {task_name}
 ```
 
-**Findings** (if new):
-```markdown
-# {Task Name} — Findings
+This creates the 5 mandatory files with correct templates if they don't exist. **You do not write them by hand.** The script is the source of truth for format.
 
-## Observations
-_Append here during the run when something notable happens._
+### 5. Load State
 
-## Findings
-_Written at completion — reconciled claims with evidence._
+```
+Read {task_dir}/{name}_notepad.md       # catch up on progress
+Read {task_dir}/{name}_decision_tree.md # check for pruned approaches
+Read {task_dir}/{name}_findings.md      # review prior observations
 ```
 
-**Decision Tree** (if new):
-```markdown
-# {Task Name} — Decision Tree
+### 6. Create Task List
 
-_Record branch points (choices between approaches) and pruned approaches (failed or rejected, with DO NOT RETRY UNLESS conditions)._
-```
-
-**User Messages** (if new — capture the original goal):
-```markdown
-# {Task Name} — User Messages
-
-### [{YYYY-MM-DD HH:MM PST}] Original Goal
-{verbatim from plan or user input}
-```
-
-Also update **task_index.md** if it exists.
-
-### 5. Create Task List
-
-One task per step, grouped by stage if applicable.
+One task per step in the plan, grouped by stage if applicable.
 
 ---
 
@@ -116,19 +111,18 @@ One task per step, grouped by stage if applicable.
 
 For each step in the plan (respecting stage order).
 
-**If a stage has only key steps (no exact commands):** Decompose it into atomic steps before executing. Use the same criteria as plan-experiment Phase 6b — read relevant scripts' argparse, write exact commands, define expected outputs and verification. You have context from prior stages that the planner didn't have. Use it.
+**If a stage has only key steps (no exact commands):** Decompose it into atomic steps before executing. Read relevant scripts' argparse, write exact commands, define expected outputs and verification. You have context from prior stages that the planner didn't have.
 
 For each step:
 
 ### 1. Check Dependencies
 
-Confirm referenced prior steps are marked PASSED in the notepad.
+Confirm referenced prior steps are marked VERIFIED in the notepad.
 If dependency not met → STOP, report which dependency is unresolved.
 
 ### 2. Check Decision Tree
 
-If the approach appears under a pruned section, check the `DO NOT RETRY UNLESS` condition.
-If not met → skip, note in notepad.
+If the approach you're about to try appears under a `D{N}-PRUNED` section, check the `DO NOT RETRY UNLESS` condition. If not met → skip this approach, note in notepad.
 
 ### 3. Re-Anchor
 
@@ -161,20 +155,19 @@ ELSE:
 
 "Check again" loop: after fixing issues, re-verify (max 3 iterations). [Addresses F5]
 
-Record in notepad:
+### 6. RECORD (MANDATORY GATE — via script)
+
+**You cannot execute step N+1 until step N is recorded.** Use the deterministic script:
+
+```bash
+r-append-notepad {notepad_path} {step_num} "{step_name}" VERIFIED \
+  "{how verified}" "{specific evidence}" "{yes | no — details}"
 ```
-### [YYYY-MM-DD HH:MM PST] Step N: {name} — VERIFIED
-- Method: {how verified}
-- Evidence: {specific output, metric, diff}
-- Clean: {yes | no — details if no}
-```
 
-### 6. Record (MANDATORY — before proceeding to next step)
+This writes the entry in the exact required format, increments `Steps completed`, and updates `Last updated`. **Do not write notepad entries by hand** — the script is the enforcement.
 
-**You cannot execute step N+1 until you have completed these writes for step N:**
+**If a decision was made between approaches**, also append to the decision tree. Write the D{N} block directly to `{name}_decision_tree.md`:
 
-a) **Notepad entry** with timestamp, method, evidence, clean status (template in step 5 above)
-b) **Decision tree entry** if you made a choice between approaches or rejected an approach. Format:
 ```
 ## D{N}: {decision context}
 | Option | Description |
@@ -182,12 +175,8 @@ b) **Decision tree entry** if you made a choice between approaches or rejected a
 | A | {approach 1} |
 | B | {approach 2} |
 **Chosen:** {which and why}
-**Outcome:** {filled after — SUCCEEDED / FAILED}
+**Outcome:** SUCCEEDED
 ```
-c) **Update "Steps completed" counter** in notepad header
-d) **Update "Last updated" timestamp** in notepad header
-
-If no decision was made (straightforward step with one obvious approach), skip (b) but still do (a), (c), (d).
 
 ### 7. Decision Point
 
@@ -197,17 +186,17 @@ If no decision was made (straightforward step with one obvious approach), skip (
 - Check plan's "If wrong" field
 - Check "If Stuck" section
 - Try fix (max 3 attempts)
-- If still failing → record FAILURE in notepad + decision tree, STOP
+- If still failing → record FAILURE via `r-append-notepad` with status `FAILURE`, add a D{N}-PRUNED entry to the decision tree, STOP
 
 **Something surprising** (result is correct but unexpected):
-- Write an observation to findings.md
+- Append an observation to `{name}_findings.md` (the "## Observations" section)
 - Continue — the stage judgment will handle deeper investigation
 
-Record failures in notepad AND decision tree:
+Record pruned approaches in the decision tree:
 ```
 ### D{N}-PRUNED: {approach name}
 - Status: ATTEMPTED_AND_FAILED
-- Reason: {specific evidence — error message, wrong output, etc.}
+- Reason: {specific evidence — error message, wrong output}
 - DO NOT RETRY UNLESS: {what would need to change}
 ```
 
@@ -215,29 +204,32 @@ Record failures in notepad AND decision tree:
 
 ## Progress Checkpoint (Every 5 Steps)
 
-**Every 5 completed steps, STOP and run this check.** This catches the "stuck doing useless work under false pretenses" failure mode — where the agent keeps executing steps that look productive but aren't advancing the goal.
+**Every 5 completed steps, STOP and run this check.** This catches "stuck doing useless work under false pretenses" — where steps look productive but don't advance the goal.
 
-Spawn a **background check-in agent** (`r:check-in`) with:
+Spawn a background **check-in agent** (`r:check-in`) with:
 
 > "Check progress on this experiment.
-> - Notepad: {path to notepad}
-> - Plan: {path to plan}  
-> - Decision tree: {path to decision tree}
-> - Findings: {path to findings}"
+> - Notepad: {path}
+> - Plan: {path}
+> - Decision tree: {path}
+> - Findings: {path}"
 
-The check-in agent has fresh context, can spawn its own investigators and critics, and returns an assessment: GOOD / SLOW / SPINNING / OFF-TRACK with a concrete recommendation.
+The check-in agent has fresh context, can spawn its own investigators and critics, and returns a verdict: GOOD / SLOW / SPINNING / OFF-TRACK.
+
+**Also run the deterministic format check:**
+```bash
+r-check-notepad-format {notepad_path}
+```
+
+If this exits non-zero, the notepad has drifted from the required format. Fix it before continuing.
 
 **If the check-in agent says SPINNING or OFF-TRACK:**
 - STOP execution
 - Re-read the plan's hypothesis and success criteria
 - Re-read the "If Stuck" section
-- Write to notepad: what you were doing, why it wasn't working, what you'll do differently
-- Write to decision tree: prune the approach that wasn't working
-- Only then continue with a different approach
-
-**If the reflector flags missing file infrastructure:**
-- Catch up on all missing writes before continuing
-- This is non-negotiable — the files are how progress survives context compaction
+- Write to notepad via `r-append-notepad` with status `PROGRESS_CHECK`
+- Add a D{N}-PRUNED entry for the approach that wasn't working
+- Continue with a different approach
 
 ---
 
@@ -253,11 +245,11 @@ Confirm all checkpoint items pass. Run analyst on stage outputs if applicable.
 
 ### 2. Reflect on Results
 
-Answer these questions (write answers to notepad):
+Answer these questions (write answers to notepad via `r-append-notepad` with status `STAGE_JUDGMENT`):
 
 - **What did this stage reveal?** 2-3 sentences on what we learned.
 - **Does the hypothesis still hold?** If results contradict expectations, say so explicitly.
-- **What assumptions were violated?** Anything surprising or different from what the plan predicted.
+- **What assumptions were violated?** Anything surprising.
 - **What questions did this raise?** List them — even obvious ones.
 
 ### 3. Investigate Leads
@@ -266,16 +258,16 @@ Look at the questions from step 2. For the top 2-3 substantive questions:
 
 - Spawn investigator agents (parallel where independent)
 - Wait for results
-- Write findings to notepad
+- Write findings to notepad via `r-append-notepad`
 
-This is what separates a research agent from a plan executor. **Do not skip this.** The OA experiment case study: the agent identified 5 gaps in its own analysis but never investigated any of them. The user had to ask "should we investigate these?" That failure is what this step prevents.
+**Do not skip this.** The failure mode we're preventing: agent identifies 5 gaps in its own analysis but never investigates any of them, because "the plan's step list doesn't include them." Research means following the questions your results raise.
 
 ### 4. Assess Next Stage
 
 Based on what you learned:
 
-- **Plan still makes sense** → continue to next stage
-- **Adjustments needed** → document what changes and why in notepad, adapt your approach for the next stage. You don't need to formally amend the plan — just note the adjustment and proceed intelligently.
+- **Plan still makes sense** → continue
+- **Adjustments needed** → document the adjustment in notepad, adapt your approach, continue
 - **Fundamentally broken** → write what you've learned to findings.md and stop. A well-documented partial result is valuable.
 
 ### 5. Correction Propagation
@@ -311,11 +303,12 @@ If questions remain but are genuinely out of scope, note them in findings.md und
 Review all observations from findings.md. Write the **Findings** section:
 - Reconcile any contradictions between early and late observations
 - For each finding: claim, evidence, implication
-- Include: CONFIRMED / REFUTED / INCONCLUSIVE status
+- Status: CONFIRMED / REFUTED / INCONCLUSIVE
 - Note any corrections made during the run and what they affected
 
 ### 4. Hypothesis Assessment
 
+Append to notepad:
 ```
 ## Hypothesis Assessment
 - Hypothesis: {verbatim from plan}
@@ -333,7 +326,17 @@ Spawn a **verifier** agent on all code changes:
 
 Fix any bugs found. Don't mark complete until verifier passes.
 
-### 6. Final Report
+### 6. Final Format Check
+
+```bash
+r-check-notepad-format {notepad_path}
+```
+
+Must exit 0 before you can declare complete.
+
+### 7. Final Report + Completion Signal
+
+Write the final report to the notepad, then emit the ralph-loop completion promise:
 
 ```
 ### [YYYY-MM-DD HH:MM PST] COMPLETE
@@ -356,25 +359,38 @@ Fix any bugs found. Don't mark complete until verifier passes.
 
 Update task index if it exists.
 
+**Finally, emit the ralph-loop completion signal on its own line:**
+```
+<promise>DONE</promise>
+```
+
+**Do not emit `<promise>DONE</promise>` unless:**
+- All success criteria met with specific evidence
+- `r-check-notepad-format` passed
+- findings.md has a reconciled Findings section
+- Post-execution verifier (if applicable) passed
+- No uninvestigated leads remain
+
+Emitting `<promise>DONE</promise>` prematurely breaks the ralph-loop. If you're not sure, don't emit it.
+
 ---
 
 ## Error Handling
 
-**Step fails:** Check "If wrong" → "If Stuck" → try fix (3x) → STOP and report.
+**Step fails:** Check "If wrong" → "If Stuck" → try fix (3x) → record FAILURE via `r-append-notepad`, add D-PRUNED to decision tree, STOP.
 
 **Out of resources:** Log to notepad, STOP, report constraints.
 
-**Overnight / autonomous runs:** Do NOT stop and wait for user input on non-fatal issues. Make your best judgment, document the reasoning in notepad, and continue. A partial run with documented decisions is more valuable than a stopped run waiting for a sleeping user. Reserve stopping for: (a) resource failures, (b) cascading errors where continuing would waste significant compute, (c) results so unexpected that any direction could be wrong.
+**Overnight / autonomous runs:** Do NOT stop and wait for user input on non-fatal issues. Make your best judgment, document the reasoning via `r-append-notepad`, and continue. A partial run with documented decisions is more valuable than a stopped run waiting for a sleeping user. Reserve stopping for: (a) resource failures, (b) cascading errors where continuing would waste significant compute, (c) results so unexpected that any direction could be wrong.
 
 ---
 
 ## Guidelines
 
-- **Stage judgment is mandatory.** This is what makes it a research agent. Don't reduce it to "outputs exist, moving on."
-- **Investigate leads before moving on.** When you identify a gap or question, explore it. The biggest failure mode is identifying problems and not pursuing them.
-- **Write observations when surprised, not per-step.** Most steps will go as expected. Write to findings.md when something genuinely notable happens.
+- **The bin/ scripts are the enforcement.** `r-init-task-files`, `r-check-plan-p8`, `r-append-notepad`, `r-check-notepad-format`. Use them. Don't write notepad/plan-check logic by hand.
+- **Stage judgment is mandatory.** Don't reduce it to "outputs exist, moving on."
+- **Investigate leads before moving on.** When you identify a gap or question, explore it.
 - **Trace corrections.** When you fix a number, ask "what else used this number?" and check those too.
-- **Decide autonomously on overnight runs.** Document your reasoning. Don't block on user input for judgment calls.
+- **Decide autonomously on overnight runs.** Document your reasoning in the notepad.
 - **Evidence, not claims.** "Verified" without specific proof is meaningless.
-- **Check decision tree before every step.** Don't re-attempt pruned approaches.
-- **Proportional investigation.** A small surprise gets a quick check. A big surprise gets deep investigation. Use judgment, not budgets.
+- **`<promise>DONE</promise>` is a commitment, not a hope.** Only emit when actually done.

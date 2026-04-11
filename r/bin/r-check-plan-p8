@@ -1,0 +1,74 @@
+#!/bin/bash
+# r-check-plan-p8 — deterministic P8 (predict-before-executing) compliance check
+#
+# Usage: r-check-plan-p8 <plan_path>
+#
+# Verifies a plan contains the P8 requirements:
+#   1. Hypothesis (what we expect and why)
+#   2. Per-step or per-stage predictions
+#   3. At least one alternative considered and rejected
+#   4. Semantic stopping criteria
+#   5. Time/compute budget estimate
+#
+# Exit codes:
+#   0 — all P8 requirements present
+#   1 — usage error or plan not found
+#   2 — P8 requirements missing (stderr lists what)
+
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "Usage: r-check-plan-p8 <plan_path>" >&2
+  exit 1
+fi
+
+PLAN="$1"
+
+if [ ! -f "$PLAN" ]; then
+  echo "Error: plan file not found: $PLAN" >&2
+  exit 1
+fi
+
+MISSING=()
+
+# 1. Hypothesis section
+if ! grep -q -i "^##* *Hypothesis" "$PLAN"; then
+  MISSING+=("Hypothesis section (## Hypothesis: what we expect and why)")
+fi
+
+# 2. Predictions — look for "Predicts:" field or "Predictions" section
+if ! grep -q -E "(Predicts:|^##* *Predictions?|Expected Results?|expected.*result)" "$PLAN"; then
+  MISSING+=("Per-step/stage Predicts: fields or Expected Results section")
+fi
+
+# 3. Alternatives considered and rejected
+if ! grep -q -i -E "(alternative.*considered|considered.*alternative|alternative.*rejected|rejected.*alternative|approach.*options?|alternatives?:)" "$PLAN"; then
+  MISSING+=("At least one alternative approach considered and rejected (with reason)")
+fi
+
+# 4. Stopping criteria
+if ! grep -q -i -E "(^##* *Stopping Criteria|stopping.criteria|stop.*when|done.*when|complete.*when)" "$PLAN"; then
+  MISSING+=("Stopping Criteria (semantic conditions, not just step counts)")
+fi
+
+# 5. Time/compute budget
+if ! grep -q -i -E "(time.*budget|compute.*budget|estimated.*(hours?|minutes?|days?)|budget.*estimate|\\b[0-9]+.*(hours?|minutes?)\\b|GPU.*hours?)" "$PLAN"; then
+  MISSING+=("Time/compute budget estimate (e.g., 'estimated 2 hours' or 'GPU budget: 8 hours')")
+fi
+
+if [ ${#MISSING[@]} -eq 0 ]; then
+  echo "P8 check passed: $PLAN"
+  exit 0
+else
+  echo "P8 check FAILED for $PLAN" >&2
+  echo "" >&2
+  echo "Missing requirements:" >&2
+  for item in "${MISSING[@]}"; do
+    echo "  - $item" >&2
+  done
+  echo "" >&2
+  echo "P8: Every experiment must state expected result + why, time/compute budget," >&2
+  echo "    alternative considered and rejected, and what would invalidate the hypothesis." >&2
+  echo "    No predictions = no hypothesis." >&2
+  exit 2
+fi

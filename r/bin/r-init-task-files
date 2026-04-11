@@ -1,0 +1,108 @@
+#!/bin/bash
+# r-init-task-files — deterministically create the 5 mandatory task files
+#
+# Usage: r-init-task-files <task_dir> <task_name>
+#
+# Creates these files if they don't already exist (idempotent):
+#   {task_dir}/{task_name}_notepad.md
+#   {task_dir}/{task_name}_findings.md
+#   {task_dir}/{task_name}_decision_tree.md
+#   {task_dir}/{task_name}_user_messages.md
+#   {task_dir}/results/  (directory)
+#
+# Does NOT touch _plan.md (that comes from /r:plan-experiment).
+#
+# Exit codes:
+#   0 — all files present (created or already existed)
+#   1 — usage error or missing task_dir
+#   2 — filesystem error
+
+set -euo pipefail
+
+if [ $# -ne 2 ]; then
+  echo "Usage: r-init-task-files <task_dir> <task_name>" >&2
+  exit 1
+fi
+
+TASK_DIR="$1"
+NAME="$2"
+TS="$(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M PST')"
+
+if [ ! -d "$TASK_DIR" ]; then
+  echo "Error: task directory does not exist: $TASK_DIR" >&2
+  exit 1
+fi
+
+mkdir -p "$TASK_DIR/results" || { echo "Error: cannot create $TASK_DIR/results" >&2; exit 2; }
+
+NOTEPAD="$TASK_DIR/${NAME}_notepad.md"
+FINDINGS="$TASK_DIR/${NAME}_findings.md"
+TREE="$TASK_DIR/${NAME}_decision_tree.md"
+MSGS="$TASK_DIR/${NAME}_user_messages.md"
+
+CREATED=()
+EXISTED=()
+
+if [ ! -f "$NOTEPAD" ]; then
+  cat > "$NOTEPAD" <<EOF
+# ${NAME} — Notepad
+
+## Status: IN_PROGRESS
+## Started: ${TS}
+## Last updated: ${TS}
+## Steps completed: 0
+
+---
+EOF
+  CREATED+=("notepad")
+else
+  EXISTED+=("notepad")
+fi
+
+if [ ! -f "$FINDINGS" ]; then
+  cat > "$FINDINGS" <<EOF
+# ${NAME} — Findings
+
+## Observations
+_Append here during the run when something notable happens. Brief notes on surprises._
+
+## Findings
+_Written at completion — reconciled claims with evidence, CONFIRMED / REFUTED / INCONCLUSIVE._
+EOF
+  CREATED+=("findings")
+else
+  EXISTED+=("findings")
+fi
+
+if [ ! -f "$TREE" ]; then
+  cat > "$TREE" <<EOF
+# ${NAME} — Decision Tree
+
+_Record branch points (D{N}) and pruned approaches (DO NOT RETRY UNLESS)._
+_Check this file before attempting anything._
+EOF
+  CREATED+=("decision_tree")
+else
+  EXISTED+=("decision_tree")
+fi
+
+if [ ! -f "$MSGS" ]; then
+  cat > "$MSGS" <<EOF
+# ${NAME} — User Messages
+
+_Verbatim user inputs about this task, with outcome annotations._
+EOF
+  CREATED+=("user_messages")
+else
+  EXISTED+=("user_messages")
+fi
+
+echo "Task files at $TASK_DIR:"
+if [ ${#CREATED[@]} -gt 0 ]; then
+  echo "  Created: ${CREATED[*]}"
+fi
+if [ ${#EXISTED[@]} -gt 0 ]; then
+  echo "  Already existed: ${EXISTED[*]}"
+fi
+echo "  results/ directory: ready"
+exit 0
