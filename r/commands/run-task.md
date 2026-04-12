@@ -9,39 +9,45 @@ Target: $ARGUMENTS
 
 If no argument provided, look for a plan file (`*_plan.md` or `PLAN.md`) in the current directory.
 
-## Startup
+---
 
-### 1. Load System Spec
+## Core Rules
 
-Read `${CLAUDE_PLUGIN_ROOT}/docs/system.md`. Focus on:
-- Failure modes F1-F12 (especially F1: fake verification, F3: skipping hard parts, F5: one error and stop)
-- Evidence-based verification
-- Anti-patterns table
+**P1: Externalize all state.** Context compacts and drifts. Files survive.
+**P2: Verify structurally.** "Verified" means specific evidence, never a claim.
+**P5: Never trust completion claims.** Loop until success criteria met with evidence.
+**P6: Spawn subagents liberally.** Fresh context is cheap, stale parent context is expensive.
 
-### 2. Load Plan
-
-Read the plan file. Parse:
-- **Goal** — what "done" looks like
-- **Stages** and steps (if staged plan)
-- **Success criteria** (tests pass, build succeeds, specific behavior)
-- **Dependencies**, verification criteria, "If wrong" fields
-- **"If Stuck"** section
-
-Also read:
-- **Notepad** (`*_notepad.md`) — resume if exists
-- **Decision tree** (`*_decision_tree.md`) — pruned approaches
-
-### 3. Initialize Notepad (if new)
-
-```markdown
-# {Task Name} — Notepad
-
-## Status: IN_PROGRESS
-## Started: {YYYY-MM-DD HH:MM PST}
-## Last updated: {YYYY-MM-DD HH:MM PST}
+**Key failure modes:**
+- **F1**: claiming "verified" without checking
+- **F3**: skipping hard parts for easier ones
+- **F5**: finding one error and stopping
+- **F6**: losing direction on long tasks
+- **F11**: re-attempting previously failed approaches
 
 ---
+
+## Startup
+
+### 1. Load Plan
+
+Read the plan file. Identify:
+- Task directory and task name
+- Goal, stages, steps, success criteria
+- Dependencies, verification criteria, "If wrong" fields
+- "If Stuck" section
+
+### 2. Initialize Task Files (DETERMINISTIC)
+
+```bash
+r-init-task-files {task_dir} {task_name}
 ```
+
+Idempotent — creates notepad, findings, decision_tree, user_messages, results/ if missing.
+
+### 3. Load State
+
+Read notepad (resume progress), decision tree (check pruned approaches).
 
 ### 4. Create Task List
 
@@ -55,7 +61,7 @@ For each step in the plan:
 
 ### 1. Check Dependencies
 
-Confirm prior steps are PASSED. If not → STOP.
+Confirm prior steps are VERIFIED in the notepad. If not → STOP.
 
 ### 2. Check Decision Tree
 
@@ -67,9 +73,7 @@ Re-read plan (current step) and last ~10 notepad entries. [Addresses F6]
 
 ### 4. Execute
 
-If step involves a script, read its argparse first. Then run the step.
-
-For code changes: make the edits, run relevant tests immediately.
+If step involves a script, read its argparse first. For code changes, run relevant tests immediately.
 
 ### 5. Verify
 
@@ -78,27 +82,63 @@ For code changes: make the edits, run relevant tests immediately.
 ```
 IF tests exist:     RUN them → record pass/fail
 IF build step:      RUN it → record output
-IF behavior change: DEMONSTRATE it works (show before/after)
+IF behavior change: DEMONSTRATE it (show before/after)
 ELSE:               SPAWN critic to review
 ```
 
 Re-verify after fixes (max 3 iterations). [Addresses F5]
 
-Record in notepad:
-```
-### [YYYY-MM-DD HH:MM PST] Step N: {name} — VERIFIED
-- Method: {how verified}
-- Evidence: {test output, build log, behavior demo}
-- Clean: {yes | no}
+### 6. RECORD (MANDATORY GATE — via script)
+
+**Cannot execute step N+1 until step N is recorded:**
+
+```bash
+r-append-notepad {notepad_path} {step_num} "{step_name}" VERIFIED \
+  "{how verified}" "{specific evidence}" "{yes | no}"
 ```
 
-### 6. Decision Point
+If a decision was made between approaches, also write a D{N} entry to the decision tree.
+
+Record failures:
+```bash
+r-append-notepad {notepad_path} {step_num} "{step_name}" FAILURE \
+  "{what tried}" "{error details}" "no — {root cause}"
+```
+
+Then add to decision tree:
+```
+### D{N}-PRUNED: {approach name}
+- Status: ATTEMPTED_AND_FAILED
+- Reason: {specific evidence}
+- DO NOT RETRY UNLESS: {what would need to change}
+```
+
+### 7. Decision Point
 
 **Pass** → continue.
 
-**Fail** → check "If wrong" → "If Stuck" → fix (3x) → STOP.
+**Fail** → check "If wrong" → "If Stuck" → fix (3x) → record FAILURE + D-PRUNED → STOP.
 
-**Unexpected side effect** → note in notepad, check if it affects downstream steps. If it does, adjust approach and document why.
+**Unexpected side effect** → note in notepad, check downstream impact. Adjust if needed.
+
+---
+
+## Progress Checkpoint (Every 5 Steps)
+
+Spawn a background **check-in agent** (`r:check-in`):
+
+> "Check progress on this task.
+> - Notepad: {path}
+> - Plan: {path}
+> - Decision tree: {path}"
+
+Also run:
+```bash
+r-check-notepad-format {notepad_path}
+```
+
+If check-in says SPINNING or OFF-TRACK → stop, prune the approach, try something different.
+If notepad format drifted → fix before continuing.
 
 ---
 
@@ -112,18 +152,18 @@ All stage outputs exist, tests pass, no regressions.
 
 ### 2. Assess Approach
 
-- **Does the approach still make sense?** Sometimes Stage 1 reveals the plan's approach won't work. Say so.
-- **Any callers or consumers affected?** Code changes ripple. Check what depends on what you changed.
-- **Is there a simpler path?** If Stage 1 showed the problem is different than expected, the remaining stages might be overcomplicated.
+- **Does the approach still make sense?**
+- **Any callers or consumers affected?**
+- **Is there a simpler path?**
 
-If adjustments needed → note in notepad, adapt. Don't follow a broken plan out of obligation.
+If adjustments needed → note in notepad, adapt.
 
 ### 3. Correction Propagation
 
-If a fix in this stage changes behavior that prior stages assumed:
+If a fix changes behavior that prior stages assumed:
 - List affected code paths
 - Re-run relevant tests
-- Update notepad with what changed and what was re-verified
+- Update notepad with what changed
 
 ---
 
@@ -136,23 +176,26 @@ For each criterion: find specific evidence. No evidence → go back and do the w
 ### 2. Remaining Concerns
 
 "What could still be wrong? What haven't I tested?"
-
-Check:
-- Edge cases the plan didn't mention
-- Callers/consumers of changed code
-- Error paths and failure modes
-- Performance implications (if relevant)
+- Edge cases, callers/consumers, error paths, performance
 
 ### 3. Post-Execution Verification (MANDATORY)
 
 Spawn a **verifier** agent on all code changes:
-1. Enumerate what could be wrong (data flow, state, API contracts, integration, semantics)
+1. Enumerate what could be wrong
 2. Read actual code to check each
 3. Report: SHIP / FIX FIRST / RETHINK
 
 Fix bugs found. Don't mark complete until verifier passes.
 
-### 4. Final Report
+### 4. Final Format Check
+
+```bash
+r-check-notepad-format {notepad_path}
+```
+
+Must pass before declaring complete.
+
+### 5. Final Report + Completion Signal
 
 ```
 ### [YYYY-MM-DD HH:MM PST] COMPLETE
@@ -161,34 +204,43 @@ Fix bugs found. Don't mark complete until verifier passes.
 - [x] Criteria 1: {evidence}
 
 ## Summary
-{What was changed, 3-5 bullets}
+{What changed, 3-5 bullets}
 
 ## Testing
 {What was tested, how, results}
 
 ## Remaining Concerns
-{Anything worth noting for the reviewer}
+{Anything worth noting}
 ```
 
 Update task index if it exists.
+
+**Emit the ralph-loop completion signal:**
+```
+<promise>DONE</promise>
+```
+
+**Do not emit unless:** all success criteria met with evidence, verifier passed, notepad format check passed.
 
 ---
 
 ## Error Handling
 
-**Step fails:** "If wrong" → "If Stuck" → fix (3x) → STOP.
+**Step fails:** "If wrong" → "If Stuck" → fix (3x) → RECORD FAILURE → STOP.
 
-**Test regressions:** Don't ignore them. Fix the regression before proceeding, or document why it's acceptable.
+**Test regressions:** Fix before proceeding.
 
-**Overnight / autonomous runs:** Same as run-experiment — decide autonomously, document reasoning. Don't block on user for judgment calls. Stop only for cascading failures or ambiguous requirements where any choice could be wrong.
+**Overnight / autonomous runs:** Decide autonomously, document reasoning via `r-append-notepad`. Don't block on user for judgment calls.
 
 ---
 
 ## Guidelines
 
-- **Run tests early and often.** Don't save testing for the end.
+- **The bin/ scripts are the enforcement.** `r-init-task-files`, `r-append-notepad`, `r-check-notepad-format`. Use them.
+- **Run tests early and often.**
 - **Check callers.** When you change an interface, verify everything that uses it.
-- **Assess at stage boundaries.** Don't follow a broken plan. If the approach isn't working, adapt.
+- **Assess at stage boundaries.** Don't follow a broken plan.
 - **Trace corrections.** When a fix changes behavior, check what depends on it.
 - **Evidence, not claims.** Test output > "I verified it works."
-- **Verifier is mandatory.** It catches logic bugs that type checking misses. Don't skip it.
+- **Verifier is mandatory.** Don't skip it.
+- **`<promise>DONE</promise>` is a commitment.** Only emit when actually done.
