@@ -1,6 +1,6 @@
 {
   "arxiv": {
-    "command": "python",
-    "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/arxiv_server.py"]
+    "command": "uv",
+    "args": ["run", "--script", "${CLAUDE_PLUGIN_ROOT}/mcp/arxiv_server.py"]
   }
 }

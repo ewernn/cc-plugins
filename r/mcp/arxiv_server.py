@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "requests",
+#     "beautifulsoup4",
+#     "mcp<2",  # server uses FastMCP, renamed to MCPServer in mcp 2.x
+#     "pypdf",
+# ]
+# ///
 """
 MCP server for fetching arXiv papers as plain text.
 
@@ -64,8 +73,19 @@ def _extract_text_from_html(html: str) -> str:
     # Extract text with some structure preservation
     lines = []
 
-    for element in content.find_all(['h1', 'h2', 'h3', 'h4', 'p', 'li', 'figcaption', 'td', 'th']):
-        text = element.get_text(separator=' ', strip=True)
+    # LaTeXML renders code listings as div.ltx_listingline, never as <pre>, so a
+    # tag-only whitelist silently drops prompt and code appendices.
+    def _wanted(tag):
+        if tag.name in ('h1', 'h2', 'h3', 'h4', 'p', 'li', 'figcaption', 'td', 'th',
+                        'pre', 'blockquote'):
+            return True
+        classes = tag.get('class') or []
+        return any(c in ('ltx_listingline', 'ltx_verbatim') for c in classes)
+
+    for element in content.find_all(_wanted):
+        classes = element.get('class') or []
+        verbatim = element.name == 'pre' or 'ltx_verbatim' in classes
+        text = element.get_text(separator='\n' if verbatim else ' ', strip=True)
         if not text:
             continue
 
