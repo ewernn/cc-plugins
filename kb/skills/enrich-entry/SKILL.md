@@ -1,6 +1,6 @@
 ---
 name: enrich-entry
-description: Deep-read a source into a full summary — read the whole paper, tag it, verify every figure. Use when asked to enrich, summarize, deep-read, or work through the capture backlog.
+description: Deep-read a source into a full summary — inventory the source, write from that inventory, verify against it. Use when asked to enrich, summarize, deep-read, or work through the capture backlog.
 ---
 
 # Enrich an entry
@@ -46,7 +46,43 @@ most common failure here and it is not acceptable.
 If you cannot get the full text, say so and stop. Do not write a summary from metadata and
 do not mark it `enriched`.
 
-## 1. Tag from the registry
+**Check for truncation before you trust the text.** If a section header is followed by
+almost nothing, or an appendix the body references is absent, the extraction dropped it.
+Say so, and treat every claim that depended on it as unverifiable rather than absent.
+
+## 1. Inventory the source — before you write anything
+
+This step exists because of a measured failure. A summary pass that reads the draft and asks
+"is each claim supported?" can only find things that are *there*; it is structurally unable
+to find what is missing. Across the first fifteen entries, limitation coverage was **39%** —
+75% for caveats under a `Limitations` heading and **22%** for caveats stated anywhere else.
+Building the checklist first is what fixes that, and it only works if you do it before the
+summary exists to anchor on.
+
+Write these down before drafting. They are the ground truth section 4 scores against.
+
+**Every headline number**, with the condition attached and where you found it. A figure
+without its condition is the most dangerous thing in this corpus, because the number is
+right and the sentence is false. Record: value, what it measures, which model or system,
+under what setting (budget, seed count, mitigation on or off, time limit), and the table or
+section it came from. Keep the anchors while you work even though they do not appear in the
+final prose.
+
+**Every limitation the authors state — and sweep the whole paper for them.** A `Limitations`
+section is where the easy ones live. The ones that get lost sit in footnotes, in a Methods
+hedge, in a Discussion aside, in an appendix caption. Search for hedging language, not just
+the heading: *only, cannot, we did not, future work, leave to, restricted to, assume, may
+not generalize, caveat, in practice*.
+
+**Every experimental condition that varies.** Which arms exist, what differs between them,
+which results belong to which. Papers describe a grid and report a subset; the subset is
+what you must attribute correctly.
+
+**What the paper does not have.** No baseline or comparator. No control condition. No
+statistical test where one is implied. No release. If a claim has no supporting artifact,
+that absence is itself a finding — record it, because the authors will not state it.
+
+## 2. Tag from the registry
 
 Read `tags.md` at the corpus root **first, every time**. It is the vocabulary.
 
@@ -60,81 +96,111 @@ Read `tags.md` at the corpus root **first, every time**. It is the vocabulary.
   security benchmark to an ML paper, which is the whole point of tagging a general corpus.
 - Do not tag by title keyword. Tag by what the work actually does. A paper with "agent" in
   the title that never runs one is not `topic:tool-use`.
+- **Release-gated tags need evidence in the body.** `artifact:benchmark`, `artifact:dataset`
+  and `use:harness` all assert a real release. If you assign one, the Scope line must say
+  where the release is. If you cannot find a release claim, do not assign the tag.
 - **There is no target number of tags.** Assign what is true. If the count feels high,
   check whether two of them are near-duplicates and report that — never drop a tag that
   applies in order to hit a number.
 - The registry is organized by area and areas are incomplete by design. A source from a
   field not listed is a gap in `tags.md`, not a source that does not belong. Report it.
 
-## 2. Write the summary
+## 3. Write the summary
 
-Format, in this order. This template is eval-derived: each rule below cost an iteration.
+Format, in this order:
 
 ```
 Setup:        <the problem or question, one sentence>
-Methodology:  <what they DID — technique, data, models. Include the decisive specifics:
-               which layers or token positions, the experimental controls, how key
-               quantities were computed>
-Findings:     (1) ... (2) ... (3) ...  numbered, with EXACT figures
-Scope:        <what was NOT tested; what the result does and does not cover>
-Connections:  <OPTIONAL — only when the contribution IS a theoretical link. Omit for
-               empirical papers>
-Useful?:      <one line: concrete relevance to the reader, profile below>
+Methodology:  <what they DID — technique, data, models, scale. Include the decisive
+               specifics: which layers or token positions, the experimental controls,
+               how key quantities were computed>
+Findings:     (1) ... (2) ... (3) ...  numbered, each with its exact figures AND the
+               condition those figures were measured under
+Scope:        <what was NOT tested; what the result does and does not cover; release
+               status; anything the paper claims without support>
+Defects:      <OPTIONAL — contradictions or errors in the source itself. Omit if none>
+Useful?:      <one or two lines: concrete relevance to the reader, profile below>
 ```
 
 Rules, in priority order:
 
-1. **Exact numbers, never rounded.** Write `91% vs 39%`, not "more than doubled". Rounding
-   is what lost the findings dimension to the human gold summary in the original eval.
-2. **Length is an output, not a target.** There is no word count to hit. Every sentence
-   must carry an exact figure, a decisive method specific, or a scope limit. If a sentence
-   carries none of those, cut it — and keep cutting until every remaining one does. A thin
-   paper yields a short entry; a figure-dense one yields a longer entry honestly.
-   Never pad toward a number, and never drop a verified figure to reach one. Before you
-   write the file, re-read the body and delete every sentence that survives only because it
-   sounds like something a summary should say.
-3. **Do not assert precision you cannot verify.** If the appendix is truncated, write
-   "several", not a guessed count. An invented number is worse than a missing one.
-4. **Scope is not optional.** What the paper did not test is what tells you whether it
-   transfers to your range.
-5. **`Connections` stays omitted** unless the contribution genuinely is a link between
-   ideas. Forcing it is how bloat returns.
+1. **Exact numbers, never rounded.** Write `91% vs 39%`, not "more than doubled". Write
+   `5.2×`, not "4-5×". Copy the value as the source states it — if it says 42K, write 42K.
+2. **Every result-bearing claim carries its condition.** This is the second-weakest
+   dimension measured on this corpus, at 76%, and the most dangerous, because the number is
+   correct so review slides past it. "157 successes" is incomplete; "157 successes with
+   mitigations disabled, two-hour limit" is a claim. If a finding spans arms with different
+   sample sizes or budgets, say so in the finding rather than leaving it implied.
+3. **Mark what the source does not report.** Write `[paper does not report X]` inline. This
+   rule exists because it was previously stated and never fired once across fifteen entries
+   — an absent number silently became an absent sentence. If you are working from a
+   truncated extraction, say which part and stop guessing at what it held.
+4. **Length is an output, never a target.** Do not aim at a word count; the last version of
+   this file suggested one and twelve of fifteen entries landed within ten words of it,
+   which is the instrument steering the writing. Every sentence must carry an exact figure,
+   a decisive method specific, a scope limit, or a condition. Cut every sentence that
+   carries none. A thin paper yields a short entry and that is a correct outcome.
+5. **Scope is not optional**, and it is where the inventory from section 1 lands. What the
+   paper did not test is what tells you whether it transfers.
+6. **Report the paper's own result, not just its instrument.** If the authors ran an
+   experiment and stated its answer, the answer belongs in Findings. Describing the
+   apparatus and dropping what it measured is the most common omission in this corpus.
 
-Reader profile for the `Useful?` line — security evaluation gyms and ranges, RL
-(Reinforcement Learning) for upskilling agents, red and blue seat design, SOC (Security
-Operations Center) agents, scoring surfaces and vantage points, and how realistic an
-environment has to be. Write the line against *that*, or it comes out generic. Treat it as
-a draft for the reader to edit; genuine relevance is their call, not yours.
+**Banned constructions.** Each of these is a sentence that survives only because it sounds
+like something a summary should say. Cut on sight:
 
-## 2b. Verify the summary before you write it
+- "significant results", "substantially outperforms" — which results, what margin?
+- "various factors", "several approaches" used to avoid naming them
+- "the methodology is robust", "a thorough evaluation" — say what makes it so
+- "has important implications", "contributes to the literature" — for whom, how?
+- "further research is needed" — what research, and why this one?
 
-Mandatory. Re-read your draft against the full text and check, one at a time:
+**Acronyms.** Spell out every acronym in parentheses on first use, including in the
+`Useful?` line — FPR (False Positive Rate), SFT (Supervised Fine-Tuning), TPR, RLHF, PPO.
+This is a house convention and it does not reach you from the corpus repo, so it is stated
+here.
 
-- **Every number.** Find it in the source. A figure you cannot locate comes out.
-- **Every attribution.** Which model, which system, which team. Naming the wrong one is the
+**Reader profile for `Useful?`** — security evaluation gyms and ranges, RL (Reinforcement
+Learning) for upskilling agents, red and blue seat design, SOC (Security Operations Center)
+agents, scoring surfaces and vantage points, and how realistic an environment has to be.
+Write the line against *that* or it comes out generic. It is a draft for the reader to edit;
+genuine relevance is their call, not yours.
+
+## 4. Verify — two passes that catch different things
+
+Mandatory, and the two passes are not interchangeable. Measured across the first fifteen
+entries: the self-check reliably caught arithmetic and attribution and reliably missed
+framing and omission. Every writer whose self-check came back clean still had errors of the
+second kind, found only by an independent reader.
+
+**Pass one — you, against your inventory.** Walk section 1's list, not your draft:
+
+- Every number in the inventory: is it in the summary, or deliberately left out? Every
+  number in the summary: is it in the inventory, with the same condition attached?
+- Every limitation in the inventory: does Scope cover it? Report the fraction.
+- Every attribution: which model, which system, which team. Wrong attribution is the
   easiest error to make and the hardest to catch later.
-- **Every experimental condition.** Results from different conditions must not end up in one
-  sentence. Ask of each claim: was this measured with the mitigation on or off, the filter
-  enabled or disabled, at which time limit? A sentence that merges two conditions reads as
-  fluent and is simply false.
-- **Every superlative and every aggregate.** "All models dropped to zero" is wrong if one
-  retained two. Totals that span multiple runs must say so.
+- Every superlative and aggregate. "All models dropped to zero" is false if one retained
+  two. A total spanning multiple runs must say so.
+- Cross-table consistency: when the same quantity appears in two places in the source, do
+  they agree? If not, that is a `Defects` line, not something to silently pick a side on.
 
-Then hand the draft and the full text to a **second reader** — a subagent, with the paper
-and the draft, asked to find what is wrong. Do not tell it what you think is right.
+**Pass two — an independent reader, given the source before the draft.** Spawn a subagent
+and hand it the paper first, asking it to list the paper's headline results, its stated
+limitations, and its experimental conditions. *Then* give it the draft and ask what is
+missing or misframed. This ordering matters: a reader shown the draft first anchors on it
+and rationalizes rather than checks — the effect is large enough that showing prior context
+blocks roughly half of the corrections a reader would otherwise make, and telling it to
+ignore the anchor does not fix it.
 
-The two passes catch different things, and this is measured, not assumed. Across the first
-fifteen entries the self-check reliably caught arithmetic and attribution: wrong figure,
-wrong model, merged conditions. It reliably missed *framing* and *omission* — a test-time
-procedure described as a training arm, a superlative the source contradicts, an author-stated
-limitation left out, a claim whose scope quietly widened. Every agent whose self-check came
-back clean still had errors of the second kind found by an independent reader.
+Ask it for four things: claims the source does not support, limitations the draft omits,
+sentences whose framing implies more than the source shows, and results the paper reported
+that the draft describes only as an instrument.
 
-Ask the second reader for three things specifically: claims the source does not support,
-author-stated limitations the draft omits, and any sentence whose framing implies more than
-the source shows.
+Do not ask for a fixed number of findings. "Nothing further" is a legitimate answer and
+forcing a quota manufactures nits.
 
-## 3. Write the file
+## 5. Write the file
 
 One file, `entries/<id>.md`. The id is type-prefixed: `arxiv-2502.16681`, `gh-owner-repo`,
 `web-<slug>`.
@@ -144,12 +210,13 @@ One file, `entries/<id>.md`. The id is type-prefixed: `arxiv-2502.16681`, `gh-ow
 title: Attention Is All You Need
 url: https://arxiv.org/abs/1706.03762
 id: arxiv-1706.03762
+authors: Vaswani et al., Google Brain
 published: 2017-06-12
 added: <today, ISO>
 tags: [topic:tool-use, use:baseline-method, method:prompting, artifact:paper]
+scale: 8 models, 2 translation tasks
+release: https://github.com/tensorflow/tensor2tensor
 venue: NeurIPS 2017
-citations: 173000
-citations_as_of: <ISO date you looked it up, or omit both>
 verification: unverified
 fulltext: fulltext/arxiv-1706.03762.md
 enriched: <today, ISO>
@@ -158,17 +225,23 @@ enriched: <today, ISO>
 Setup: ...
 ```
 
-On the two trust fields, which are deliberately separate:
+On the fields that are easy to get wrong:
 
-- `venue` / `citations` / `citations_as_of` are **source trust** — external, fetchable, and
-  they drift, so a citation count without its as-of date is worthless. Omit rather than guess.
-- `verification` is **your** state, and only ever moves by hand: `unverified` on capture,
-  `spot-checked` when someone confirmed the headline numbers against the paper,
-  `reproduced` when someone ran it. Never set this above `unverified` yourself.
+- `authors` — first author plus affiliation is enough. Whether a result comes from a
+  government lab or the vendor whose model it evaluates is a first-order trust filter, and
+  it is unrecoverable from a summary that omits it.
+- `scale` — the size of the thing: task count, model count, instance count. This is the
+  first filter anyone applies to a benchmark and it should not require reading the body.
+- `release` — a URL, or the literal `none`. Never omit it: a missing field is
+  indistinguishable from an unreleased artifact, and the release-gated tags depend on this.
+- `venue` — omit rather than guess. For a preprint with no journal reference, omit.
+- `verification` — the reader's field, never yours. `unverified` on write; a human moves it
+  to `spot-checked` or `reproduced`. Nothing in this pipeline may raise it.
+- For a repo, `published` is meaningless — record the commit SHA in `scale` or the fulltext
+  header instead, and omit `published`.
 
 For a non-arXiv source, write what you retrieved to `fulltext/<id>.md` yourself. Depth 3 is
-what makes a claim checkable later, and `search` greps it for verbatim quotes. That file is depth 3;
-nothing reads it until a question needs the source verbatim.
+what makes a claim checkable later, and `search` greps it for verbatim quotes.
 
 ## The depth ladder
 
@@ -176,7 +249,7 @@ Three depths, and the file layout *is* the mechanism:
 
 | Depth | Where | Read it when |
 |---|---|---|
-| 1 | frontmatter — title, tags, dates | scanning or filtering the whole corpus |
+| 1 | frontmatter — title, tags, scale, dates | scanning or filtering the whole corpus |
 | 2 | the summary body | deciding whether this is the right source |
 | 3 | `fulltext/<id>.md` | quoting, or checking a claim |
 
