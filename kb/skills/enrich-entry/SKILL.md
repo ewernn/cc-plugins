@@ -41,10 +41,30 @@ most common failure here and it is not acceptable.
   LaTeX (`$R^{2}=0.96$`), so quote figures from it exactly.
 - GitHub repo: read the README, then the entry-point source files. Claims in a README are
   marketing until the code agrees.
-- Web article or PDF: WebFetch, or Read for a local PDF.
+- **Web article:** WebFetch first. If it returns 403, or yields under ~500 characters of
+  prose, the site is bot-protected or client-rendered — refetch through the reader service:
 
-If you cannot get the full text, say so and stop. Do not write a summary from metadata and
-do not mark it `enriched`.
+  ```bash
+  curl -sL --max-time 40 "https://r.jina.ai/<the full url>"
+  ```
+
+  It needs no key and returns markdown. Corporate research pages commonly block a direct
+  fetch and pass cleanly this way; treat a 403 as "use the reader", not as "unavailable".
+- Local PDF: `Read` with the `pages` parameter.
+
+**Follow the link to the actual source.** A lab blog post, a project page, or a press
+release is usually a *front door*, not the source. If the page links a PDF, an arXiv ID, or
+a "read the paper" target, and its own body is short or trails off in "read more", then the
+page you fetched is an index and summarizing it produces a shallow entry wearing the badge
+of a deep one.
+
+In that case, fetch the linked paper and summarize **that**. Keep the blog post as `url`
+because it is the address you will look for again, and record what you actually read in
+`fulltext:` and in the Methodology line. If both exist and differ in substance — the post
+reports a result the paper does not, or vice versa — say so rather than silently choosing.
+
+If you cannot get the full text by any of these routes, say so and stop. Do not write a
+summary from metadata and do not mark it `enriched`.
 
 **Check for truncation before you trust the text.** If a section header is followed by
 almost nothing, or an appendix the body references is absent, the extraction dropped it.

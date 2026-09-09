@@ -26,6 +26,17 @@ Fetch **metadata only**. Do not read the full text; that is enrich's job.
 | GitHub repo | the API record and README head: description, topics, dates | `gh-<owner>-<repo>` |
 | Web article | `<title>`, `<meta>` description, published date | `web-<slug>` |
 
+**When a direct fetch fails, use the reader service.** A 403, or a page yielding under ~500
+characters, means bot protection or client-side rendering — not an unavailable source.
+Refetch through `https://r.jina.ai/<the full url>`, which needs no key. Corporate research
+and lab blog pages block direct fetches routinely.
+
+**Record the paper link if there is one.** Lab posts and project pages are usually front
+doors: a short body, a "read the paper" link, a PDF or arXiv URL. Capture the page itself,
+but put that target in a `paper:` field so `enrich-entry` reads the source rather than the
+announcement. If the body is short *and* a paper link exists, say so in your report — that
+entry needs the deep read pointed somewhere else.
+
 If `entries/<id>.md` already exists, stop. Report whether it is a stub or enriched, and
 change nothing — a capture must never clobber a summary someone wrote or edited.
 
@@ -56,6 +67,7 @@ id: arxiv-1706.03762
 published: 2017-06-12
 added: <today, ISO>
 tags: [topic:tool-use, artifact:paper]
+paper: <url of the linked paper/PDF, if this page is a front door; omit otherwise>
 abstract: <the source's own abstract or description, verbatim, one paragraph>
 verification: unverified
 ---
