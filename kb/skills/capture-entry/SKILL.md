@@ -40,6 +40,16 @@ entry needs the deep read pointed somewhere else.
 If `entries/<id>.md` already exists, stop. Report whether it is a stub or enriched, and
 change nothing — a capture must never clobber a summary someone wrote or edited.
 
+**Record what you saw, and when.** For a repo, that means the commit SHA and push date —
+an actively developed project is a moving target and a stub without a pin cannot be
+re-identified later. Where a source and its registry disagree — a description claiming a
+license the `LICENSE` file does not carry, a visible date differing from the metadata — put
+both in the abstract and say they disagree rather than choosing.
+
+If the URL 404s, do not write an entry; report it. If the source has no readable text at
+all (a video, a bare dataset release), capture it and say so — but flag that it has no deep
+read available, so the backlog does not queue an impossible enrich.
+
 ## 3. Tag provisionally
 
 Read `tags.md` at the corpus root first, every time. Assign from it and only from it.

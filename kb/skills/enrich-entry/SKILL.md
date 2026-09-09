@@ -66,6 +66,32 @@ reports a result the paper does not, or vice versa — say so rather than silent
 If you cannot get the full text by any of these routes, say so and stop. Do not write a
 summary from metadata and do not mark it `enriched`.
 
+### Edge cases
+
+Each of these has actually occurred in this corpus. The rule underneath all of them is the
+same: **record what you read, from where, and when.** A summary whose source you cannot
+re-identify is not checkable, and depth 3 exists to make claims checkable.
+
+- **The source is still moving.** An actively developed repo, a leaderboard, a living spec.
+  Pin it: record the commit SHA (or the retrieval date, if that is all there is) in the
+  fulltext header and in `scale`. Without a pin, the summary silently rots as the source
+  changes and nobody can tell which version it described.
+- **The source states one thing and its registry says another.** A repo whose description
+  claims a license its `LICENSE` file does not carry; a page whose visible date differs from
+  its metadata. Record both and say they disagree. Never silently pick the one that reads
+  better.
+- **Versioned sources.** arXiv papers get revised, and `published` is the v1 date while the
+  text you read may be v3. Record the version you actually read; the corpus already contains
+  an entry where these silently disagree.
+- **No text at all.** A video, a podcast, a dataset release with a bare README. Capture it,
+  say what it is, and do not mark it `enriched` — an entry claiming a deep read of something
+  with nothing to read is worse than a stub.
+- **Behind a login or paywall.** Stop. Do not summarize from an abstract or a preview and do
+  not mark it enriched. Record the address so a human can decide.
+- **The link is dead.** If it 404s at capture time, do not write an entry. If an existing
+  entry's URL has died, that is a `Defects` line and a job for `reconcile-tags`, not a
+  silent deletion.
+
 **Check for truncation before you trust the text.** If a section header is followed by
 almost nothing, or an appendix the body references is absent, the extraction dropped it.
 Say so, and treat every claim that depended on it as unverifiable rather than absent.
