@@ -51,7 +51,7 @@ Example angles for a codebase investigation:
 - "How does [X] connect to the rest of the system?"
 
 For research topics, include:
-- "Search arxiv for recent papers on [X]"
+- "Search the literature for recent papers on [X]"
 - "What are the main approaches to [X]?"
 
 **2. Wait for Results**

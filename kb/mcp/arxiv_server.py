@@ -18,7 +18,9 @@ Usage:
     Add to ~/.claude.json via: claude mcp add arxiv python /path/to/arxiv_server.py
 """
 
+import hashlib
 import io
+import os
 import re
 import time
 import requests
@@ -62,6 +64,17 @@ def _extract_text_from_html(html: str) -> str:
     for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
         tag.decompose()
 
+    # Drop the style-violation banner arXiv's renderer injects above the title.
+    for tag in soup.find_all(class_=lambda c: c and 'ltx_ERROR' in c):
+        tag.decompose()
+
+    # LaTeXML keeps the original LaTeX on every <math> as alttext=. Rendered MathML
+    # flattens to symbol soup (D_{KL} becomes an unsubscripted glyph run), so swap each
+    # one for its source wrapped in $.
+    for node in soup.find_all('math'):
+        latex = node.get('alttext')
+        node.replace_with(f" ${latex}$ " if latex else node.get_text(strip=True))
+
     # Try to find main article content
     article = soup.find('article') or soup.find('main') or soup.find('div', class_='ltx_page_content')
 
@@ -104,6 +117,18 @@ def _extract_text_from_html(html: str) -> str:
             lines.append(text)
 
     return '\n'.join(lines)
+
+_REFS_HEADING = re.compile(r"^#+\s*(references|bibliography)\s*$", re.M | re.I)
+
+
+def _strip_references(text: str) -> tuple[str, int]:
+    """Cut everything from the last References heading. Returns (text, chars_dropped)."""
+    matches = list(_REFS_HEADING.finditer(text))
+    if not matches:
+        return text, 0
+    cut = matches[-1].start()
+    return text[:cut].rstrip(), len(text) - cut
+
 
 def _extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Extract text from PDF bytes."""
@@ -166,39 +191,63 @@ def _fetch_paper(arxiv_id: str) -> str:
     return full_text
 
 @mcp.tool()
-def fetch_arxiv_paper(arxiv_id: str, chunk: int | None = None, chunk_size: int = 15000) -> str:
+def fetch_arxiv_paper(
+    arxiv_id: str,
+    chunk: int | None = None,
+    chunk_size: int = 15000,
+    save_to: str | None = None,
+    include_references: bool = False,
+) -> str:
     """
-    Fetch the full text of an arXiv paper from its HTML version.
+    Fetch an arXiv paper as markdown. Tries the HTML render, falls back to the PDF.
 
     Args:
-        arxiv_id: arXiv paper ID (e.g., "2502.16681", "2502.16681v1", or full URL)
-        chunk: Which chunk to return (0-indexed). None returns full paper.
-        chunk_size: Characters per chunk (default 15000, ~4k tokens)
+        arxiv_id: arXiv ID ("2502.16681", "2502.16681v1", or a full URL)
+        chunk: Which chunk to return (0-indexed). None returns the whole paper.
+        chunk_size: Characters per chunk (default 15000, roughly 4k tokens)
+        save_to: Write the complete paper to this path and return a receipt instead of
+            the text. Use it to archive a paper without carrying it through context.
+            No default — the caller owns the location.
+        include_references: Keep the bibliography. Off by default; it is 40-50% of a
+            typical paper and is dead weight for summarization.
 
     Returns:
-        Full paper text in markdown-ish format (tries HTML first, falls back to PDF)
+        The requested chunk, the whole paper, or a save receipt when save_to is set.
     """
     text = _fetch_paper(arxiv_id)
 
     if text.startswith("Error:"):
         return text
 
+    dropped = 0
+    if not include_references:
+        text, dropped = _strip_references(text)
+    note = f", {dropped:,} chars of references omitted" if dropped else ""
+
+    if save_to:
+        path = os.path.abspath(os.path.expanduser(save_to))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        return (f"Saved {len(text):,} chars to {path}{note}\n"
+                f"sha256:{digest}\n"
+                f"Read it with the Read tool, or call again with chunk=N to page through.")
+
     total_chars = len(text)
     total_chunks = (total_chars + chunk_size - 1) // chunk_size
 
     if chunk is None:
-        # Return full paper with chunk info header
-        return f"[Full paper: {total_chars:,} chars, {total_chunks} chunks of {chunk_size:,}]\n\n{text}"
+        return f"[Full paper: {total_chars:,} chars, {total_chunks} chunks of {chunk_size:,}{note}]\n\n{text}"
 
-    # Return specific chunk
     start = chunk * chunk_size
     end = start + chunk_size
 
     if start >= total_chars:
         return f"Error: Chunk {chunk} out of range. Paper has {total_chunks} chunks (0-{total_chunks-1})."
 
-    chunk_text = text[start:end]
-    return f"[Chunk {chunk}/{total_chunks-1}, chars {start:,}-{min(end, total_chars):,} of {total_chars:,}]\n\n{chunk_text}"
+    return (f"[Chunk {chunk}/{total_chunks-1}, chars {start:,}-{min(end, total_chars):,} "
+            f"of {total_chars:,}{note}]\n\n{text[start:end]}")
 
 if __name__ == "__main__":
     mcp.run()

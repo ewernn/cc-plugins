@@ -26,7 +26,19 @@ both, since you are about to know much more than whoever captured it.
 Read the **full text**, not the abstract. A summary written from an abstract is the single
 most common failure here and it is not acceptable.
 
-- arXiv: use the `fetch_arxiv_paper` tool (the `r:arxiv` plugin). It chunks; read every chunk.
+- **arXiv:** archive it first, then read it:
+
+  ```
+  fetch_arxiv_paper(arxiv_id="<id>", save_to="$KB_PATH/fulltext/arxiv-<id>.md")
+  ```
+
+  That writes depth 3 byte-for-byte and returns only a receipt, so the text never passes
+  through your context on the way to disk — retyping it back out is how summaries silently
+  lose content. Then read what you need with `Read`, or page with `chunk=N`.
+
+  References are dropped by default; they are half a typical paper and nothing in a summary
+  needs them. Pass `include_references=True` only for citation work. Math comes back as
+  LaTeX (`$R^{2}=0.96$`), so quote figures from it exactly.
 - GitHub repo: read the README, then the entry-point source files. Claims in a README are
   marketing until the code agrees.
 - Web article or PDF: WebFetch, or Read for a local PDF.
@@ -154,8 +166,8 @@ On the two trust fields, which are deliberately separate:
   `spot-checked` when someone confirmed the headline numbers against the paper,
   `reproduced` when someone ran it. Never set this above `unverified` yourself.
 
-Save the retrieved full text to `fulltext/<id>.md` when you have it — depth 3 is what
-makes a claim checkable later, and `search` greps it for verbatim quotes. That file is depth 3;
+For a non-arXiv source, write what you retrieved to `fulltext/<id>.md` yourself. Depth 3 is
+what makes a claim checkable later, and `search` greps it for verbatim quotes. That file is depth 3;
 nothing reads it until a question needs the source verbatim.
 
 ## The depth ladder
