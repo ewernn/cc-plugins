@@ -7,8 +7,12 @@
     {
       "name": "r",
       "source": "./r",
-      "description": "Research tools: experiment planning, investigation swarms, specialized agents",
-      "version": "1.0.0"
+      "description": "Research tools: experiment planning, investigation swarms, specialized agents"
+    },
+    {
+      "name": "kb",
+      "source": "./kb",
+      "description": "Personal knowledge base: capture any source, tag it from a controlled registry, and search entries and full text without a database"
     }
   ]
 }
