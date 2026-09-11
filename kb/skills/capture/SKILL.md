@@ -1,27 +1,38 @@
 ---
-name: enrich-entry
-description: Deep-read a source into a full summary — inventory the source, write from that inventory, verify against it. Use when asked to enrich, summarize, deep-read, or work through the capture backlog.
+name: capture
+description: Add a source to the knowledge base — read it in full, tag it from the registry, summarize it, and verify against the source. Use when given a link to save, capture, add, summarize, or deep-read.
 ---
 
-# Enrich an entry
+# Capture a source
 
-Turn one source into a full summary, read from the whole text and verified against it.
+One step, one link in, one finished entry out. Read the source in full, inventory it, write
+the summary from that inventory, verify against it.
+
+There is no fast path and no stub queue. An entry either exists and is complete, or it does
+not exist. A half-entry is worse than none: it looks answered in the index and isn't.
 
 Read `$KB_PATH` first. If it is unset, stop and say so — never guess the corpus location.
 Every path below is relative to it.
 
-Works on a stub left by `capture-entry`, or straight from a link. To work the backlog, find
-the stubs — entries with no `enriched:` field — and take them oldest first:
+If `entries/<id>.md` already exists, stop and say so — never clobber a summary someone may
+have edited. To find entries left incomplete by an interrupted run:
 
 ```bash
 grep -L '^enriched:' "$KB_PATH"/entries/*.md
 ```
 
-If the entry already has `enriched:`, stop and say so. Do not silently overwrite a summary
-someone may have edited. A stub carries provisional tags and a verbatim abstract; replace
-both, since you are about to know much more than whoever captured it.
+Those are failures to finish, not a backlog to work. Re-run this skill on them.
 
-## 0. Fetch the source
+## 0. Resolve and fetch the source
+
+Work out what kind of source this is and what its id will be:
+
+| Source | Get | Id |
+|---|---|---|
+| arXiv | the abstract page or API: title, authors, date, abstract, DOI | `arxiv-<id>` |
+| GitHub repo | the API record and README head: description, topics, dates | `gh-<owner>-<repo>` |
+| Web article | `<title>`, `<meta>` description, published date | `web-<slug>` |
+
 
 Read the **full text**, not the abstract. A summary written from an abstract is the single
 most common failure here and it is not acceptable.

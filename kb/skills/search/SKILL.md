@@ -41,7 +41,7 @@ Read `entries/<id>.md`. The body is the summary, and it carries exact figures, s
 it rather than paraphrasing numbers.
 
 If the entry is a stub — no `enriched:` field — say so. Its tags are provisional and its
-claims are the source's own abstract, not a verified summary. Offer to run `enrich-entry`.
+claims are the source's own abstract, not a verified summary. Offer to run `capture`.
 
 ## Depth 3 — the verbatim quote
 
