@@ -8,20 +8,51 @@ description: Add a source to the knowledge base — read it in full, tag it from
 One step, one link in, one finished entry out. Read the source in full, inventory it, write
 the summary from that inventory, verify against it.
 
-There is no fast path and no stub queue. An entry either exists and is complete, or it does
-not exist. A half-entry is worse than none: it looks answered in the index and isn't.
+There is no fast path. An entry either exists and is finished, or it does not exist. A
+half-entry is worse than none: it looks answered in the index and isn't.
 
 Read `$KB_PATH` first. If it is unset, stop and say so — never guess the corpus location.
 Every path below is relative to it.
 
-If `entries/<id>.md` already exists, stop and say so — never clobber a summary someone may
-have edited. To find entries left incomplete by an interrupted run:
+**Depth is proportional to the source, not to a standard.** A 40-page paper earns a long
+entry; a vendor landing page earns a short one. Websites, repos and marketing pages are
+legitimate captures — a thin source yields a thin entry and that is the capture working, not
+failing. What never varies is that you read the whole thing and record what it does not
+have. The `capture:` stamp means this skill ran to completion, never that the source was
+deep, so every finished entry carries it.
+
+## Check the corpus first — always
+
+Run this before fetching anything. It is the first command of every capture:
 
 ```bash
-grep -L '^enriched:' "$KB_PATH"/entries/*.md
+python3 "${CLAUDE_PLUGIN_ROOT}/bin/find_source.py" --kb "$KB_PATH" "<url or arxiv id or title>"
 ```
 
-Those are failures to finish, not a backlog to work. Re-run this skill on them.
+It matches the query against every entry's `url`, `paper`, `id` and `title`, and prints one
+of three verdicts per query. It costs ~30 tokens; reading `INDEX.md` to answer the same
+question costs ~6,800 and cannot answer it properly, because the index carries no URLs.
+
+- `NEW` — no match. Proceed. Exit code 0.
+- `EXISTS` — a URL, arXiv ID or entry id matched. Definitive.
+- `SIMILAR` — a fuzzy title match, printed with its ratio. This one is your call: a ratio
+  near 1.000 with the same digits is the same source, while `DIGITS DIFFER` usually means a
+  version bump — CyberSecEval 2 against 3, a framework's V3 against its V4 — and those are
+  *different sources that both belong in the corpus*. Check before skipping.
+
+Exit 1 means something matched, exit 2 means the tool failed and you have checked nothing.
+
+**On `EXISTS`, stop and report it — do not re-capture.** The line already carries the entry
+id, its `capture:` date and its title, so report those, then ask. Re-capture only when the
+user explicitly asks for it in so many words, and say plainly that you are overwriting. An
+existing summary may have been edited by hand, and that work is not recoverable.
+
+Three reasons that sound like permission and are not: the link is a PDF and the entry
+records the `abs/` URL; the entry looks thin; the entry is older than the source. The first
+is the same source, the second is usually the source being thin, and the third is a reason
+to ask. When a re-capture is wanted for a specific missing piece — appendices the original
+capture did not extract, a source that has since changed — update the existing entry in
+place and say what changed, rather than writing over it wholesale.
 
 ## 0. Resolve and fetch the source
 
@@ -66,8 +97,8 @@ most common failure here and it is not acceptable.
 **Follow the link to the actual source.** A lab blog post, a project page, or a press
 release is usually a *front door*, not the source. If the page links a PDF, an arXiv ID, or
 a "read the paper" target, and its own body is short or trails off in "read more", then the
-page you fetched is an index and summarizing it produces a shallow entry wearing the badge
-of a deep one.
+page you fetched is an index, and summarizing it describes the front door while claiming to
+describe the source.
 
 In that case, fetch the linked paper and summarize **that**. Keep the blog post as `url`
 because it is the address you will look for again, and record what you actually read in
@@ -75,7 +106,9 @@ because it is the address you will look for again, and record what you actually 
 reports a result the paper does not, or vice versa — say so rather than silently choosing.
 
 If you cannot get the full text by any of these routes, say so and stop. Do not write a
-summary from metadata and do not mark it `enriched`.
+summary from metadata, and do not write an entry at all — report the address back instead.
+An entry that exists is an entry that was read; that is the only thing its presence in the
+corpus is allowed to mean.
 
 ### Edge cases
 
@@ -94,11 +127,11 @@ re-identify is not checkable, and depth 3 exists to make claims checkable.
 - **Versioned sources.** arXiv papers get revised, and `published` is the v1 date while the
   text you read may be v3. Record the version you actually read; the corpus already contains
   an entry where these silently disagree.
-- **No text at all.** A video, a podcast, a dataset release with a bare README. Capture it,
-  say what it is, and do not mark it `enriched` — an entry claiming a deep read of something
-  with nothing to read is worse than a stub.
-- **Behind a login or paywall.** Stop. Do not summarize from an abstract or a preview and do
-  not mark it enriched. Record the address so a human can decide.
+- **No text at all.** A video, a podcast, a dataset release with a bare README. Capture it
+  and say plainly what it is and what it does not contain. The entry will be short, it is
+  finished, and it is stamped — do not pad it toward the length of a paper entry.
+- **Behind a login or paywall.** Stop. Do not summarize from an abstract or a preview, and
+  do not write an entry. Report the address back so a human can decide.
 - **The link is dead.** If it 404s at capture time, do not write an entry. If an existing
   entry's URL has died, that is a `Defects` line and a job for `reconcile-tags`, not a
   silent deletion.
@@ -262,6 +295,16 @@ forcing a quota manufactures nits.
 One file, `entries/<id>.md`. The id is type-prefixed: `arxiv-2502.16681`, `gh-owner-repo`,
 `web-<slug>`.
 
+Check the path before writing it, because the id is only derived in section 0 and the
+corpus check ran before that:
+
+```bash
+test -e "$KB_PATH/entries/<id>.md" && echo "STOP: entry already exists"
+```
+
+If it exists and the user did not explicitly ask for an overwrite, stop and report it. This
+is the last guard before a hand-edited summary is lost.
+
 ```md
 ---
 title: Attention Is All You Need
@@ -269,14 +312,13 @@ url: https://arxiv.org/abs/1706.03762
 id: arxiv-1706.03762
 authors: Vaswani et al., Google Brain
 published: 2017-06-12
-added: <today, ISO>
 tags: [topic:tool-use, use:baseline-method, method:prompting, artifact:paper]
 scale: 8 models, 2 translation tasks
 release: https://github.com/tensorflow/tensor2tensor
 venue: NeurIPS 2017
 verification: unverified
 fulltext: fulltext/arxiv-1706.03762.md
-enriched: <today, ISO>
+capture: <today, ISO>
 ---
 
 Setup: ...
@@ -284,6 +326,10 @@ Setup: ...
 
 On the fields that are easy to get wrong:
 
+- `capture` — today, ISO. The date this entry was written, and the only date field about
+  *you* rather than about the source: `published` is the source's date. It is what tells a
+  reader how stale a summary of a moving source is, so never backdate it and never carry one
+  over from an earlier entry.
 - `authors` — first author plus affiliation is enough. Whether a result comes from a
   government lab or the vendor whose model it evaluates is a first-order trust filter, and
   it is unrecoverable from a summary that omits it.
@@ -320,5 +366,5 @@ the ladder exists.
 python3 "${CLAUDE_PLUGIN_ROOT}/bin/build_index.py" --kb "$KB_PATH"
 ```
 
-Always, as the last step. The index carries the Setup line and the stub marker, both of
-which you just changed.
+Always, as the last step. The index carries the title, tags and Setup line of every entry,
+which is what you just changed.

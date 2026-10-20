@@ -40,8 +40,10 @@ assigned by someone who read the paper.
 Read `entries/<id>.md`. The body is the summary, and it carries exact figures, so quote from
 it rather than paraphrasing numbers.
 
-If the entry is a stub — no `enriched:` field — say so. Its tags are provisional and its
-claims are the source's own abstract, not a verified summary. Offer to run `capture`.
+Entries vary in depth because sources do: a vendor landing page yields a few lines, a paper
+yields several paragraphs. A short entry is a short source, not an unfinished one — say what
+the entry says without treating its length as a caveat. `capture:` records when the entry
+was written, so check it against a fast-moving source before quoting.
 
 ## Depth 3 — the verbatim quote
 
