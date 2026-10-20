@@ -1,0 +1,10 @@
+{
+  "principles": {
+    "epistemics": [
+      "Say when you don't know: name the gap explicitly rather than inferring past it."
+    ],
+    "coding": [
+      "YAGNI / minimal LoC. Build only what's needed now; defer the rest with an explicit trigger."
+    ]
+  }
+}

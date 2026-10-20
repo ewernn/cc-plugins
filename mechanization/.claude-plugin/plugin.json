@@ -1,0 +1,36 @@
+{
+  "name": "mechanization",
+  "description": "Inject the current datetime, standing principles, and this directory's recent prompts into every turn via a UserPromptSubmit hook",
+  "version": "0.1.0",
+  "author": {
+    "name": "ewern"
+  },
+  "userConfig": {
+    "recent_messages": {
+      "type": "number",
+      "title": "Recent prompts",
+      "description": "How many of this directory's most recent human prompts to inject. 0 disables the piece.",
+      "default": 10
+    },
+    "clip_threshold": {
+      "type": "number",
+      "title": "Clip threshold (chars)",
+      "description": "A prompt longer than this keeps its first and last half-threshold characters and elides the middle, so words typed before or after a large paste both survive.",
+      "default": 4000
+    },
+    "inject_now": {
+      "type": "string",
+      "title": "Inject datetime",
+      "description": "on injects the current local datetime, which the model has no other live source for.",
+      "default": "on",
+      "options": ["on", "off"]
+    },
+    "inject_principles": {
+      "type": "string",
+      "title": "Inject principles",
+      "description": "on injects the principles from ~/.claude/principles.json.",
+      "default": "on",
+      "options": ["on", "off"]
+    }
+  }
+}

@@ -13,6 +13,11 @@
       "name": "kb",
       "source": "./kb",
       "description": "Personal knowledge base: capture any source, tag it from a controlled registry, and search entries and full text without a database"
+    },
+    {
+      "name": "mechanization",
+      "source": "./mechanization",
+      "description": "Inject datetime, standing principles and this directory's recent prompts into every turn via a UserPromptSubmit hook"
     }
   ]
 }

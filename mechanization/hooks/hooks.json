@@ -1,0 +1,16 @@
+{
+  "description": "mechanization — inject datetime, principles and recent prompts on every turn",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt_context.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
